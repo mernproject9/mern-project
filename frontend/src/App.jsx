@@ -8,7 +8,8 @@ function App() {
  
   useEffect(() => {
     if (student) {
-      document.title = `Welcome, ${student.name}`;
+      const roleStr = student.role ? ` (${student.role})` : "";
+      document.title = `Welcome, ${student.name}${roleStr}`;
     } else {
       document.title = "Student Profile Manager";
     }
@@ -16,7 +17,7 @@ function App() {
  
   return (
     <div className="container">
-      <h1>Student Registration Form</h1>
+      <h1>User Account & Role Manager</h1>
  
       <StudentForm setStudent={setStudent} />
  
@@ -25,7 +26,7 @@ function App() {
       {student ? (
         <StudentCard student={student} />
       ) : (
-        <h3>No Student Added Yet</h3>
+        <h3>No Profile Registered Yet</h3>
       )}
     </div>
   );

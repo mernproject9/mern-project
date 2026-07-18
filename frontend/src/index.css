@@ -1,52 +1,247 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+  --panel-bg: rgba(30, 41, 59, 0.7);
+  --panel-border: rgba(99, 102, 241, 0.25);
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --accent-color: #6366f1;
+  --accent-hover: #4f46e5;
+  --success-color: #10b981;
+  --warning-color: #f59e0b;
+  --admin-color: #ec4899;
+}
+
 body {
-  font-family: Arial, sans-serif;
-  background: #f2f2f2;
+  font-family: 'Outfit', sans-serif;
+  background: var(--bg-gradient);
+  color: var(--text-primary);
+  min-height: 100vh;
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
- 
+
 .container {
-  width: 450px;
+  width: 480px;
   margin: 40px auto;
-  background: white;
-  padding: 25px;
-  border-radius: 10px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  backdrop-filter: blur(16px);
+  padding: 30px;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  animation: fadeIn 0.5s ease-out;
 }
- 
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 h1 {
   text-align: center;
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-top: 0;
+  margin-bottom: 25px;
+  background: linear-gradient(to right, #818cf8, #c084fc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
- 
+
+h3 {
+  text-align: center;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
 form {
   display: flex;
   flex-direction: column;
+  gap: 15px;
 }
- 
+
 label {
-  margin-top: 10px;
-  font-weight: bold;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
- 
-input {
-  padding: 10px;
-  margin-top: 5px;
+
+input, select {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
 }
- 
+
+input:focus, select:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+}
+
+option {
+  background: #1e293b;
+  color: var(--text-primary);
+}
+
 button {
-  margin-top: 20px;
-  padding: 10px;
-  background: blue;
+  margin-top: 10px;
+  padding: 12px;
+  background: var(--accent-color);
   color: white;
   border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 1rem;
   cursor: pointer;
+  transition: all 0.3s ease;
 }
- 
+
 button:hover {
-  background: darkblue;
+  background: var(--accent-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
 }
- 
+
+button:active {
+  transform: translateY(0);
+}
+
+hr {
+  border: 0;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--panel-border), transparent);
+  margin: 30px 0;
+}
+
 .card {
   margin-top: 20px;
-  padding: 20px;
-  background: #eaf4ff;
-  border-radius: 10px;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.4s ease-out;
 }
- 
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.card h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: #a5b4fc;
+  border-bottom: 1px solid rgba(99, 102, 241, 0.15);
+  padding-bottom: 10px;
+}
+
+.card p {
+  margin: 12px 0;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card strong {
+  color: var(--text-primary);
+}
+
+.badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.badge-student {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--success-color);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.badge-instructor {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--warning-color);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.badge-admin {
+  background: rgba(236, 72, 153, 0.15);
+  color: var(--admin-color);
+  border: 1px solid rgba(236, 72, 153, 0.3);
+}
+
+/* Portal sections */
+.role-portal {
+  margin-top: 20px;
+  padding: 15px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.5);
+  border-left: 4px solid var(--accent-color);
+}
+
+.admin-portal {
+  border-left-color: var(--admin-color);
+}
+
+.instructor-portal {
+  border-left-color: var(--warning-color);
+}
+
+.student-portal {
+  border-left-color: var(--success-color);
+}
+
+.role-portal h4 {
+  margin: 0 0 8px 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.role-portal p {
+  margin: 0 0 12px 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.portal-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.portal-btn {
+  margin-top: 0;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.portal-btn:hover {
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+  box-shadow: none;
+}
