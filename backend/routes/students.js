@@ -2,14 +2,38 @@ const express = require("express");
 const router = express.Router();
 
 const Student = require("../models/Student");
+const bcrypt = require("bcryptjs");
 
-// CREATE
+// CREATE (Registration)
 router.post("/", async (req, res) => {
   try {
-    const student = await Student.create(req.body);
+    const { name, email, password, role } = req.body;
+
+    // Check if email already exists
+    const existingUser = await Student.findOne({ email });
+
+    if (existingUser) {
+      return res.status(400).json({
+        message: "Email already exists",
+      });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Save user
+    const student = await Student.create({
+      name,
+      email,
+      password: hashedPassword,
+      role,
+    });
+
     res.status(201).json(student);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({
+      message: err.message,
+    });
   }
 });
 
@@ -19,7 +43,9 @@ router.get("/", async (req, res) => {
     const students = await Student.find();
     res.json(students);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({
+      message: err.message,
+    });
   }
 });
 
@@ -29,7 +55,9 @@ router.get("/:id", async (req, res) => {
     const student = await Student.findById(req.params.id);
     res.json(student);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({
+      message: err.message,
+    });
   }
 });
 
@@ -44,7 +72,9 @@ router.put("/:id", async (req, res) => {
 
     res.json(student);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({
+      message: err.message,
+    });
   }
 });
 
@@ -57,7 +87,9 @@ router.delete("/:id", async (req, res) => {
       message: "Student Deleted Successfully",
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({
+      message: err.message,
+    });
   }
 });
 

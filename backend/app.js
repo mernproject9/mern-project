@@ -4,7 +4,7 @@ var path = require("path");
 var cookieParser = require("cookie-parser");
 var logger = require("morgan");
 
-
+const cors = require("cors");
 const dotenv = require("dotenv");
 const connectDB = require("./config/db");
 const studentsRouter = require("./routes/students");
@@ -14,7 +14,7 @@ dotenv.config();
 connectDB();
 
 var app = express();
-
+app.use(cors());
 app.set("views", path.join(__dirname, "views"));
 app.set("view engine", "jade");
 

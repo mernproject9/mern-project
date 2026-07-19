@@ -11,10 +11,16 @@ const studentSchema = new mongoose.Schema({
     required: true,
   },
 
-  age: {
-    type: Number,
-    required: true,
-  },
+ password: {
+  type: String,
+  required: true,
+},
+
+role: {
+  type: String,
+  enum: ["Student", "Instructor", "Admin"],
+  default: "Student",
+},
 });
 
 module.exports = mongoose.model("Student", studentSchema);
