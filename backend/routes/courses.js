@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
+const mongoose = require("mongoose");
 const Course = require("../models/Course");
+const Enrollment = require("../models/Enrollment");
 const { protect, admin } = require("../middleware/auth");
 
 // @desc    Get all courses (with optional search and category filters)
@@ -32,6 +34,9 @@ router.get("/", protect, async (req, res) => {
 // @access  Private
 router.get("/:id", protect, async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ message: "Course not found" });
+    }
     const course = await Course.findById(req.params.id);
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
@@ -40,6 +45,54 @@ router.get("/:id", protect, async (req, res) => {
   } catch (error) {
     console.error("Get course error:", error);
     res.status(500).json({ message: error.message });
+  }
+});
+
+// @desc    Enroll in a course by ID
+// @route   POST /courses/:id/enroll
+// @access  Private
+router.post("/:id/enroll", protect, async (req, res) => {
+  const courseId = req.params.id;
+
+  try {
+    if (!mongoose.Types.ObjectId.isValid(courseId)) {
+      return res.status(400).json({ message: "Invalid course ID" });
+    }
+
+    // Check if course exists
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ message: "Course not found" });
+    }
+
+    // Check if already enrolled
+    const alreadyEnrolled = await Enrollment.findOne({
+      studentId: req.user._id,
+      courseId,
+    });
+
+    if (alreadyEnrolled) {
+      return res.status(400).json({ message: "You are already enrolled in this course" });
+    }
+
+    const enrollment = await Enrollment.create({
+      studentId: req.user._id,
+      courseId,
+      progress: 0,
+      completedModules: [],
+      status: "enrolled",
+    });
+
+    // Populate course details and return
+    const populated = await Enrollment.findById(enrollment._id).populate("courseId");
+
+    return res.status(201).json(populated);
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ message: "You are already enrolled in this course" });
+    }
+    console.error("Enrollment error:", error);
+    return res.status(500).json({ message: error.message });
   }
 });
 

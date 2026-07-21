@@ -1,16 +1,13 @@
 import { useState, useEffect, useContext } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import {
   ArrowLeft,
   Clock,
   User,
   BookOpen,
-  Award,
   CheckCircle,
   AlertCircle,
-  HelpCircle,
-  ChevronRight,
   ShieldCheck
 } from "lucide-react";
 
@@ -72,7 +69,7 @@ const CourseDetail = () => {
   }, [id, token, navigate, API_BASE]);
 
   const handleEnroll = async () => {
-    if (!token) {
+    if (!token || !user) {
       navigate("/login");
       return;
     }
@@ -94,13 +91,23 @@ const CourseDetail = () => {
       const data = await response.json();
 
       if (!response.ok) {
+        if (response.status === 400 && data.message?.toLowerCase().includes("already enrolled")) {
+          // If already enrolled, fetch current enrollment object to sync state
+          const enrollRes = await fetch(`${API_BASE}/enrollments/my/${id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (enrollRes.ok) {
+            const enrollData = await enrollRes.json();
+            setEnrollment(enrollData);
+          }
+        }
         throw new Error(data.message || "Failed to enroll in the course.");
       }
 
-      setSuccess(`Congratulations! You have successfully enrolled in "${course.title}".`);
+      setSuccess(`Congratulations! You have successfully enrolled in "${course?.title || "the course"}".`);
       setEnrollment(data); // update enrollment status in UI immediately
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "An unexpected error occurred during enrollment.");
     } finally {
       setEnrolling(false);
     }
@@ -327,7 +334,13 @@ const CourseDetail = () => {
                     disabled={enrolling}
                     style={{ padding: "16px", fontSize: "1.1rem" }}
                   >
-                    {enrolling ? "Enrolling..." : "Enroll in Course"}
+                    {enrolling ? (
+                      <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                        <span className="spinner-sm"></span> Enrolling...
+                      </span>
+                    ) : (
+                      "Enroll in Course"
+                    )}
                   </button>
                   <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", textAlign: "center", marginTop: "12px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
                     <ShieldCheck size={14} style={{ color: "var(--color-success)" }} /> Verified Enrollment Security

@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const mongoose = require("mongoose");
 const Enrollment = require("../models/Enrollment");
 const Course = require("../models/Course");
 const User = require("../models/User");
@@ -14,6 +15,10 @@ router.post("/", protect, async (req, res) => {
   try {
     if (!courseId) {
       return res.status(400).json({ message: "Course ID is required" });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(courseId)) {
+      return res.status(400).json({ message: "Invalid course ID" });
     }
 
     // Check if course exists
@@ -43,10 +48,13 @@ router.post("/", protect, async (req, res) => {
     // Populate course details and return
     const populated = await Enrollment.findById(enrollment._id).populate("courseId");
 
-    res.status(201).json(populated);
+    return res.status(201).json(populated);
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ message: "You are already enrolled in this course" });
+    }
     console.error("Enrollment error:", error);
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({ message: error.message });
   }
 });
 
