@@ -297,4 +297,60 @@ router.get("/admin/reports", protect, admin, async (req, res) => {
   }
 });
 
+// @desc    Verify certificate authenticity by ID (Admin only)
+// @route   GET /enrollments/admin/verify-certificate/:certificateId
+// @route   GET /enrollments/admin/certificate/:certificateId
+// @access  Private/Admin
+const verifyCertificateHandler = async (req, res) => {
+  const { certificateId } = req.params;
+
+  try {
+    if (!certificateId || !certificateId.trim()) {
+      return res.status(400).json({ isValid: false, message: "Certificate ID is required" });
+    }
+
+    const trimmedId = certificateId.trim();
+
+    // Find enrollment by certificateId (case insensitive)
+    const enrollment = await Enrollment.findOne({
+      certificateId: { $regex: new RegExp(`^${trimmedId}$`, "i") },
+    })
+      .populate("studentId", "name email")
+      .populate("courseId", "title category instructor description modules");
+
+    if (!enrollment) {
+      return res.status(404).json({
+        isValid: false,
+        message: `No certificate found with ID: "${trimmedId}"`,
+      });
+    }
+
+    return res.json({
+      isValid: true,
+      message: "Certificate verified successfully",
+      certificate: {
+        certificateId: enrollment.certificateId,
+        status: enrollment.status,
+        issueDate: enrollment.completedAt || enrollment.updatedAt,
+        completedAt: enrollment.completedAt,
+        studentName: enrollment.studentId ? enrollment.studentId.name : "Unknown Student",
+        studentEmail: enrollment.studentId ? enrollment.studentId.email : "N/A",
+        studentId: enrollment.studentId ? enrollment.studentId._id : null,
+        courseTitle: enrollment.courseId ? enrollment.courseId.title : "Unknown Course",
+        category: enrollment.courseId ? enrollment.courseId.category : "N/A",
+        instructor: enrollment.courseId ? enrollment.courseId.instructor : "N/A",
+        courseDescription: enrollment.courseId ? enrollment.courseId.description : "",
+        progress: enrollment.progress,
+      },
+    });
+  } catch (error) {
+    console.error("Verify certificate error:", error);
+    return res.status(500).json({ isValid: false, message: error.message });
+  }
+};
+
+router.get("/admin/verify-certificate/:certificateId", protect, admin, verifyCertificateHandler);
+router.get("/admin/certificate/:certificateId", protect, admin, verifyCertificateHandler);
+
 module.exports = router;
+

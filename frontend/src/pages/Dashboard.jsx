@@ -16,10 +16,12 @@ import {
   User,
   Printer,
   Sparkles,
-  Layers
+  Layers,
+  ShieldCheck
 } from "lucide-react";
 import AnalyticsChart from "../components/AnalyticsChart";
 import WeeklyActivityChart from "../components/WeeklyActivityChart";
+import VerifyCertificate from "../components/VerifyCertificate";
 
 const Dashboard = () => {
   const { user, token, logout, API_BASE } = useContext(AuthContext);
@@ -386,17 +388,30 @@ const Dashboard = () => {
             </a>
           </li>
           {user.role === "admin" && (
-            <li>
-              <a
-                className={`sidebar-link ${activeTab === "reports" ? "active" : ""}`}
-                onClick={() => {
-                  setActiveTab("reports");
-                  setMobileMenuOpen(false);
-                }}
-              >
-                <FileText size={20} /> Analytics & Reports
-              </a>
-            </li>
+            <>
+              <li>
+                <a
+                  className={`sidebar-link ${activeTab === "reports" ? "active" : ""}`}
+                  onClick={() => {
+                    setActiveTab("reports");
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  <FileText size={20} /> Analytics & Reports
+                </a>
+              </li>
+              <li>
+                <a
+                  className={`sidebar-link ${activeTab === "verify-certificate" ? "active" : ""}`}
+                  onClick={() => {
+                    setActiveTab("verify-certificate");
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  <ShieldCheck size={20} /> Verify Certificate
+                </a>
+              </li>
+            </>
           )}
         </ul>
 
@@ -426,6 +441,7 @@ const Dashboard = () => {
             {activeTab === "dashboard" && "Dashboard Overview"}
             {activeTab === "courses" && (user.role === "admin" ? "Academy Courses" : "Explore Courses")}
             {activeTab === "reports" && "Education Metrics & Reports"}
+            {activeTab === "verify-certificate" && "Certificate Authenticity Verification"}
           </h1>
 
           <div className="nav-actions">
@@ -1051,6 +1067,13 @@ const Dashboard = () => {
                 </div>
               )}
             </div>
+          )}
+
+          {/* ========================================================= */}
+          {/* TAB 4: CERTIFICATE VERIFICATION (ADMIN ONLY) */}
+          {/* ========================================================= */}
+          {user.role === "admin" && activeTab === "verify-certificate" && (
+            <VerifyCertificate token={token} API_BASE={API_BASE} reports={reports} />
           )}
         </div>
       </main>
