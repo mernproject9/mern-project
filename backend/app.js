@@ -16,6 +16,7 @@ const authRouter = require("./routes/auth");
 const coursesRouter = require("./routes/courses");
 const enrollmentsRouter = require("./routes/enrollments");
 const studentsRouter = require("./routes/students");
+const activityRouter = require("./routes/activity");
 
 dotenv.config();
 
@@ -39,6 +40,7 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use("/api/auth", authRouter);
 app.use("/api/courses", coursesRouter);
 app.use("/api/enrollments", enrollmentsRouter);
+app.use("/api/activity", activityRouter);
 app.use("/students", studentsRouter);
 
 app.use(function (req, res, next) {

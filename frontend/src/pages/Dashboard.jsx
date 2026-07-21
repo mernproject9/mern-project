@@ -21,6 +21,7 @@ import {
   Layers
 } from "lucide-react";
 import AnalyticsChart from "../components/AnalyticsChart";
+import WeeklyActivityChart from "../components/WeeklyActivityChart";
 
 const Dashboard = () => {
   const { user, token, logout, API_BASE } = useContext(AuthContext);
@@ -45,6 +46,7 @@ const Dashboard = () => {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [selectedProgressCourse, setSelectedProgressCourse] = useState(null); // for progress modal
   const [selectedCertificate, setSelectedCertificate] = useState(null); // for certificate modal
+  const [activityRefreshTrigger, setActivityRefreshTrigger] = useState(0);
 
   // --- Admin State ---
   const [adminStats, setAdminStats] = useState(null);
@@ -211,6 +213,9 @@ const Dashboard = () => {
           const statsData = await statsRes.json();
           setLearnerStats(statsData);
         }
+
+        // Trigger weekly activity chart refetch
+        setActivityRefreshTrigger((prev) => prev + 1);
 
         if (data.progress === 100) {
           showAlert("success", `Congratulations! You completed ${data.courseId.title}! Claim your certificate now.`);
@@ -496,6 +501,9 @@ const Dashboard = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Weekly Learning Activity Line Chart Component */}
+              <WeeklyActivityChart token={token} API_BASE={API_BASE} refreshTrigger={activityRefreshTrigger} />
 
               {/* Charts & Progress */}
               <div className="charts-grid">

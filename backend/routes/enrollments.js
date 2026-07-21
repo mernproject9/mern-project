@@ -125,6 +125,9 @@ router.put("/my/:courseId/progress", protect, async (req, res) => {
       (validCompleted.length / totalModulesCount) * 100
     );
 
+    const prevCompletedCount = enrollment.completedModules.length;
+    const newlyCompletedCount = Math.max(0, validCompleted.length - prevCompletedCount);
+
     enrollment.completedModules = validCompleted;
     enrollment.progress = progressPercent;
 
@@ -144,6 +147,20 @@ router.put("/my/:courseId/progress", protect, async (req, res) => {
     }
 
     const updated = await enrollment.save();
+
+    // Log Activity record if new modules were completed
+    if (newlyCompletedCount > 0) {
+      const Activity = require("../models/Activity");
+      await Activity.create({
+        studentId: req.user._id,
+        courseId: course._id,
+        timeSpentMinutes: newlyCompletedCount * 35, // estimate ~35 mins per completed module
+        modulesCompleted: newlyCompletedCount,
+        activityType: "module_completion",
+        timestamp: new Date(),
+      });
+    }
+
     const populated = await Enrollment.findById(updated._id).populate("courseId");
 
     res.json(populated);
