@@ -3,12 +3,12 @@ const router = express.Router();
 const mongoose = require("mongoose");
 const Course = require("../models/Course");
 const Enrollment = require("../models/Enrollment");
-const { protect, admin } = require("../middleware/auth");
+const { protect, optionalAuth, admin } = require("../middleware/auth");
 
 // @desc    Get all courses (with optional search and category filters)
 // @route   GET /courses
-// @access  Private
-router.get("/", protect, async (req, res) => {
+// @access  Public (Optional Auth)
+router.get("/", optionalAuth, async (req, res) => {
   try {
     const { category, search } = req.query;
     let query = {};
@@ -31,8 +31,8 @@ router.get("/", protect, async (req, res) => {
 
 // @desc    Get single course by ID
 // @route   GET /courses/:id
-// @access  Private
-router.get("/:id", protect, async (req, res) => {
+// @access  Public (Optional Auth)
+router.get("/:id", optionalAuth, async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(404).json({ message: "Course not found" });

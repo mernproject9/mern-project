@@ -24,20 +24,15 @@ const CourseDetail = () => {
   const [success, setSuccess] = useState("");
 
   // Route protection & fetch data
+  // Fetch course details & user enrollment status
   useEffect(() => {
-    if (!token) {
-      navigate("/login");
-      return;
-    }
-
     const fetchCourseAndEnrollment = async () => {
       setLoading(true);
       setError("");
       try {
         // 1. Fetch course details
-        const courseRes = await fetch(`${API_BASE}/courses/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const courseRes = await fetch(`${API_BASE}/courses/${id}`, { headers });
         
         if (!courseRes.ok) {
           throw new Error("Course not found");
@@ -45,16 +40,20 @@ const CourseDetail = () => {
         const courseData = await courseRes.json();
         setCourse(courseData);
 
-        // 2. Fetch user enrollment status for this course
-        const enrollRes = await fetch(`${API_BASE}/enrollments/my/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        // 2. Fetch user enrollment status for this course if authenticated
+        if (token) {
+          const enrollRes = await fetch(`${API_BASE}/enrollments/my/${id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
 
-        if (enrollRes.ok) {
-          const enrollData = await enrollRes.json();
-          setEnrollment(enrollData);
+          if (enrollRes.ok) {
+            const enrollData = await enrollRes.json();
+            setEnrollment(enrollData);
+          } else {
+            // 404 or other non-ok status means not enrolled yet
+            setEnrollment(null);
+          }
         } else {
-          // 404 or other error means not enrolled yet
           setEnrollment(null);
         }
       } catch (err) {
@@ -66,7 +65,7 @@ const CourseDetail = () => {
     };
 
     fetchCourseAndEnrollment();
-  }, [id, token, navigate, API_BASE]);
+  }, [id, token, API_BASE]);
 
   const handleEnroll = async () => {
     if (!token || !user) {
@@ -92,7 +91,7 @@ const CourseDetail = () => {
 
       if (!response.ok) {
         if (response.status === 400 && data.message?.toLowerCase().includes("already enrolled")) {
-          // If already enrolled, fetch current enrollment object to sync state
+          // If backend reports already enrolled, sync local enrollment state
           const enrollRes = await fetch(`${API_BASE}/enrollments/my/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
@@ -291,7 +290,21 @@ const CourseDetail = () => {
                 </p>
               </div>
 
-              {enrollment ? (
+              {!token || !user ? (
+                // Case 0: Unauthenticated user
+                <div>
+                  <button
+                    className="btn btn-primary btn-block"
+                    onClick={handleEnroll}
+                    style={{ padding: "16px", fontSize: "1.1rem" }}
+                  >
+                    Log in to Enroll
+                  </button>
+                  <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", textAlign: "center", marginTop: "12px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+                    <ShieldCheck size={14} style={{ color: "var(--color-primary)" }} /> Authentication required to enroll
+                  </p>
+                </div>
+              ) : enrollment ? (
                 // Case 1: Already Enrolled
                 <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                   <div
@@ -326,7 +339,7 @@ const CourseDetail = () => {
                   </button>
                 </div>
               ) : (
-                // Case 2: Not Enrolled
+                // Case 2: Authenticated & Not Enrolled
                 <div>
                   <button
                     className="btn btn-primary btn-block"
