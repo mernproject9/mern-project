@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Chart from "chart.js/auto";
 import { Clock, BookOpen, Layers, Flame, RefreshCw, PlusCircle, AlertCircle, Sparkles } from "lucide-react";
 
@@ -22,7 +22,7 @@ const WeeklyActivityChart = ({ token, API_BASE, refreshTrigger }) => {
   const [logSubmitting, setLogSubmitting] = useState(false);
 
   // Fetch weekly activity metrics from API
-  const fetchWeeklyActivity = async () => {
+  const fetchWeeklyActivity = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     setError(null);
@@ -43,11 +43,11 @@ const WeeklyActivityChart = ({ token, API_BASE, refreshTrigger }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token, API_BASE]);
 
   useEffect(() => {
     fetchWeeklyActivity();
-  }, [token, refreshTrigger]);
+  }, [fetchWeeklyActivity, refreshTrigger]);
 
   // Seed sample scenario for testing
   const handleSelectScenario = async (scenario) => {
@@ -294,7 +294,7 @@ const WeeklyActivityChart = ({ token, API_BASE, refreshTrigger }) => {
     chartInstanceRef.current = new Chart(ctx, {
       type: "line",
       data: {
-        labels: activityData.weeks.map((w) => w.subLabel),
+        labels,
         datasets,
       },
       options: chartOptions,

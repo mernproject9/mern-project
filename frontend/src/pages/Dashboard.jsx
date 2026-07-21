@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from "react";
+import { useState, useEffect, useContext, useCallback } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
 import {
@@ -10,12 +10,10 @@ import {
   PlusCircle,
   FileText,
   LogOut,
-  CheckCircle,
   Clock,
   Search,
   Filter,
   User,
-  ChevronRight,
   Printer,
   Sparkles,
   Layers
@@ -69,7 +67,7 @@ const Dashboard = () => {
   };
 
   // Fetch Learners Data
-  const fetchLearnerData = async () => {
+  const fetchLearnerData = useCallback(async () => {
     if (!token || user?.role !== "learner") return;
     try {
       // 1. My Enrollments
@@ -101,10 +99,10 @@ const Dashboard = () => {
     } catch (err) {
       console.error("Error fetching learner data:", err);
     }
-  };
+  }, [token, user, API_BASE]);
 
   // Fetch Admin Data
-  const fetchAdminData = async () => {
+  const fetchAdminData = useCallback(async () => {
     if (!token || user?.role !== "admin") return;
     try {
       // 1. Admin Dashboard Stats
@@ -136,7 +134,7 @@ const Dashboard = () => {
     } catch (err) {
       console.error("Error fetching admin data:", err);
     }
-  };
+  }, [token, user, API_BASE]);
 
   useEffect(() => {
     if (user) {
@@ -146,7 +144,7 @@ const Dashboard = () => {
         fetchAdminData();
       }
     }
-  }, [user, token]);
+  }, [user, token, fetchLearnerData, fetchAdminData]);
 
   // Handle Course Enrollment
   const handleEnroll = async (courseId) => {
