@@ -4,15 +4,17 @@ var path = require("path");
 var cookieParser = require("cookie-parser");
 var logger = require("morgan");
 
-
 const dotenv = require("dotenv");
 const connectDB = require("./config/db");
-const studentsRouter = require("./routes/students");
-const dashboardRouter = require("./routes/dashboard");
 
 dotenv.config();
 
 connectDB();
+
+const authRouter = require("./routes/auth");
+const adminRouter = require("./routes/admin");
+const studentsRouter = require("./routes/students");
+const dashboardRouter = require("./routes/dashboard");
 
 var app = express();
 
@@ -36,9 +38,11 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 
-
-app.use("/students", studentsRouter);
+// Register REST API routes
+app.use("/api/auth", authRouter);
+app.use("/api/admin", adminRouter);
 app.use("/api/dashboard", dashboardRouter);
+app.use("/students", studentsRouter);
 
 app.use(function (req, res, next) {
   next(createError(404));

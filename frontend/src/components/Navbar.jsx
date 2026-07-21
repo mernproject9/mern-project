@@ -7,7 +7,11 @@ export default function Navbar({
   searchQuery,
   setSearchQuery,
   onOpenStudentModal,
-  onOpenEnrollModal
+  onOpenEnrollModal,
+  viewMode,
+  onToggleViewMode,
+  userRole,
+  onOpenTokenModal
 }) {
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -21,6 +25,19 @@ export default function Navbar({
           </svg>
         </div>
         <span className="brand-title">EduPulse</span>
+        <span style={{
+          fontSize: "0.68rem",
+          fontWeight: 800,
+          background: viewMode === "admin" ? "rgba(239, 68, 68, 0.2)" : "rgba(99, 102, 241, 0.2)",
+          color: viewMode === "admin" ? "#f87171" : "#818cf8",
+          border: `1px solid ${viewMode === "admin" ? "rgba(239, 68, 68, 0.4)" : "rgba(99, 102, 241, 0.4)"}`,
+          padding: "0.15rem 0.5rem",
+          borderRadius: "12px",
+          textTransform: "uppercase",
+          letterSpacing: "0.5px"
+        }}>
+          {viewMode === "admin" ? "ADMIN PORTAL" : "STUDENT PORTAL"}
+        </span>
       </div>
 
       <div className="nav-search">
@@ -38,13 +55,40 @@ export default function Navbar({
       </div>
 
       <div className="nav-actions">
-        <button className="btn-primary" onClick={onOpenEnrollModal} style={{ padding: "0.5rem 1rem", fontSize: "0.85rem" }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <line x1="12" y1="5" x2="12" y2="19"/>
-            <line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>
-          Explore Catalog
+        {/* Toggle between Student & Admin View */}
+        <button
+          className="btn-secondary"
+          onClick={onToggleViewMode}
+          style={{
+            padding: "0.4rem 0.85rem",
+            fontSize: "0.8rem",
+            background: viewMode === "admin" ? "rgba(99, 102, 241, 0.15)" : "rgba(239, 68, 68, 0.15)",
+            color: viewMode === "admin" ? "#818cf8" : "#f87171",
+            borderColor: viewMode === "admin" ? "var(--accent-primary)" : "#ef4444"
+          }}
+        >
+          {viewMode === "admin" ? "🎓 View Student Dashboard" : "🛡️ Switch to Admin Portal"}
         </button>
+
+        {/* View JWT Token Modal Button */}
+        <button
+          className="btn-secondary"
+          onClick={onOpenTokenModal}
+          style={{ padding: "0.4rem 0.75rem", fontSize: "0.8rem" }}
+          title="Inspect & test JWT Authorization Headers"
+        >
+          🔑 JWT Key
+        </button>
+
+        {viewMode === "student" && (
+          <button className="btn-primary" onClick={onOpenEnrollModal} style={{ padding: "0.4rem 0.85rem", fontSize: "0.8rem" }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Explore Catalog
+          </button>
+        )}
 
         <button className="icon-btn" onClick={toggleTheme} title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}>
           {theme === "dark" ? (
@@ -108,7 +152,7 @@ export default function Navbar({
           <img src={currentStudent?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"} alt={currentStudent?.name} className="avatar-img" />
           <div className="profile-info">
             <span className="profile-name">{currentStudent?.name || "Student"}</span>
-            <span className="profile-role">{currentStudent?.department?.split(" ")[0] || "Enrolled"}</span>
+            <span className="profile-role">{viewMode === "admin" ? "Admin" : (currentStudent?.department?.split(" ")[0] || "Enrolled")}</span>
           </div>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: "var(--text-muted)" }}>
             <polyline points="6 9 12 15 18 9"></polyline>

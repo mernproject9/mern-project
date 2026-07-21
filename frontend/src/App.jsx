@@ -9,6 +9,8 @@ import UpcomingDeadlines from "./components/UpcomingDeadlines";
 import EnrollCourseModal from "./components/EnrollCourseModal";
 import CertificateModal from "./components/CertificateModal";
 import StudentSwitcherModal from "./components/StudentSwitcherModal";
+import AdminDashboard from "./components/AdminDashboard";
+import JwtTokenModal from "./components/JwtTokenModal";
 
 // Initial fallback mock data
 const initialMockData = {
@@ -122,8 +124,14 @@ function App() {
   const [theme, setTheme] = useState("dark");
   
   // Authentication State Guard
-  const [isAuthenticated, setIsAuthenticated] = useState(true); // default authenticated for ease of view, toggleable
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [authEmail, setAuthEmail] = useState("alex.morgan@university.edu");
+  const [userRole, setUserRole] = useState("student"); // "student" or "admin"
+  const [viewMode, setViewMode] = useState("student"); // "student" or "admin"
+
+  // JWT Tokens
+  const [studentToken, setStudentToken] = useState("");
+  const [adminToken, setAdminToken] = useState("");
 
   const [currentStudent, setCurrentStudent] = useState(initialMockData.student);
   const [courses, setCourses] = useState(initialMockData.courses);
@@ -134,7 +142,7 @@ function App() {
   const [apiError, setApiError] = useState(null);
 
   // Filter & Search states
-  const [statusTab, setStatusTab] = useState("all"); // "all", "in-progress", "completed", "not-started"
+  const [statusTab, setStatusTab] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [sortBy, setSortBy] = useState("progress-desc");
   const [searchQuery, setSearchQuery] = useState("");
@@ -144,6 +152,7 @@ function App() {
   const [selectedCertificateCourse, setSelectedCertificateCourse] = useState(null);
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
+  const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
 
   // Apply dark/light theme attribute to root
   useEffect(() => {
@@ -153,9 +162,20 @@ function App() {
   // Update document title
   useEffect(() => {
     document.title = isAuthenticated
-      ? `EduPulse | ${currentStudent?.name || 'Student'}'s Progress Dashboard`
+      ? `EduPulse | ${viewMode === "admin" ? "Admin Portal" : currentStudent?.name + "'s Progress Dashboard"}`
       : "EduPulse | Student Authentication Required";
-  }, [isAuthenticated, currentStudent]);
+  }, [isAuthenticated, currentStudent, viewMode]);
+
+  // Fetch demo JWT tokens from API on startup
+  useEffect(() => {
+    fetch("/api/auth/demo-tokens")
+      .then(res => res.json())
+      .then(data => {
+        if (data.student) setStudentToken(data.student.token);
+        if (data.admin) setAdminToken(data.admin.token);
+      })
+      .catch(err => console.warn("Demo tokens note:", err.message));
+  }, []);
 
   // Fetch student progress data from backend API
   const fetchDashboardData = async () => {
@@ -164,7 +184,8 @@ function App() {
     setApiError(null);
     try {
       const studentId = currentStudent?.id || "demo";
-      const res = await fetch(`/api/dashboard/${studentId}`);
+      const headers = studentToken ? { Authorization: `Bearer ${studentToken}` } : {};
+      const res = await fetch(`/api/dashboard/${studentId}`, { headers });
       if (!res.ok) {
         throw new Error(`HTTP Error ${res.status}: Failed to load student progress`);
       }
@@ -173,7 +194,6 @@ function App() {
       if (data.student) setCurrentStudent(prev => ({ ...prev, ...data.student }));
     } catch (err) {
       console.warn("API Connection note:", err.message);
-      // Fallback to reactive local store so application remains 100% operational
       setApiError("Backend connection offline. Using local cached progress data.");
     } finally {
       setLoading(false);
@@ -243,13 +263,17 @@ function App() {
     });
 
     try {
+      const headers = {
+        "Content-Type": "application/json",
+        ...(studentToken ? { Authorization: `Bearer ${studentToken}` } : {})
+      };
       await fetch(`/api/dashboard/${currentStudent?.id || 'demo'}/toggle-lesson`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ courseId, lessonId })
       });
     } catch (e) {
-      // Local reactive update succeeds seamlessly
+      // Local state sync succeeds
     }
   };
 
@@ -318,15 +342,12 @@ function App() {
   const filteredCourses = useMemo(() => {
     return courses
       .filter(c => {
-        // Status tab filtering
         if (statusTab === "in-progress" && (c.progressPercentage === 0 || c.progressPercentage >= 100)) return false;
         if (statusTab === "completed" && c.progressPercentage < 100) return false;
         if (statusTab === "not-started" && c.progressPercentage > 0) return false;
 
-        // Category filter
         if (categoryFilter !== "all" && c.category !== categoryFilter) return false;
 
-        // Search query
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase();
           const matchTitle = c.title.toLowerCase().includes(q);
@@ -346,14 +367,44 @@ function App() {
   }, [courses, statusTab, categoryFilter, sortBy, searchQuery]);
 
   // Authentication Login Handler
-  const handleLoginSubmit = (e) => {
+  const handleLoginSubmit = async (e) => {
     e.preventDefault();
     if (!authEmail) return;
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: authEmail,
+          password: "password123",
+          requestedRole: userRole
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.token) {
+        if (data.user.role === "admin") {
+          setAdminToken(data.token);
+          setViewMode("admin");
+        } else {
+          setStudentToken(data.token);
+          setViewMode("student");
+        }
+      }
+    } catch (err) {
+      console.warn("Login fallback:", err.message);
+    }
+
     setIsAuthenticated(true);
-    setCurrentStudent(prev => ({ ...prev, email: authEmail, name: authEmail.split("@")[0].toUpperCase() }));
+    if (userRole === "admin") {
+      setViewMode("admin");
+    } else {
+      setViewMode("student");
+      setCurrentStudent(prev => ({ ...prev, email: authEmail, name: authEmail.split("@")[0].toUpperCase() }));
+    }
   };
 
-  // Render Authentication Guard screen if student is not authenticated
+  // Render Authentication Guard screen if not authenticated
   if (!isAuthenticated) {
     return (
       <div className="app-wrapper" style={{ justifyContent: "center", alignItems: "center", minHeight: "100vh", padding: "2rem" }}>
@@ -375,16 +426,40 @@ function App() {
           </div>
 
           <h2 style={{ fontSize: "1.4rem", color: "var(--text-primary)", marginBottom: "0.5rem" }}>
-            Student Authentication Required
+            Urban EdTech Portal Login
           </h2>
           <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "1.5rem" }}>
-            Please log in with your student portal credentials to access your enrolled courses and progress dashboard.
+            Authenticate with Student or Admin credentials to receive a signed JWT token and access protected routes.
           </p>
 
           <form onSubmit={handleLoginSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem", textAlign: "left" }}>
             <div>
               <label style={{ fontSize: "0.8rem", color: "var(--text-secondary)", display: "block", marginBottom: "0.3rem" }}>
-                Student Email Address
+                Select Login Role
+              </label>
+              <div className="tab-group" style={{ marginBottom: "0.5rem" }}>
+                <button
+                  type="button"
+                  className={`tab-btn ${userRole === 'student' ? 'active' : ''}`}
+                  onClick={() => { setUserRole('student'); setAuthEmail('alex.morgan@university.edu'); }}
+                  style={{ flex: 1 }}
+                >
+                  🎓 Student Role
+                </button>
+                <button
+                  type="button"
+                  className={`tab-btn ${userRole === 'admin' ? 'active' : ''}`}
+                  onClick={() => { setUserRole('admin'); setAuthEmail('admin@urban.edu'); }}
+                  style={{ flex: 1 }}
+                >
+                  🛡️ Admin Role
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label style={{ fontSize: "0.8rem", color: "var(--text-secondary)", display: "block", marginBottom: "0.3rem" }}>
+                Email Address
               </label>
               <input
                 type="email"
@@ -392,7 +467,7 @@ function App() {
                 style={{ paddingLeft: "1rem" }}
                 value={authEmail}
                 onChange={(e) => setAuthEmail(e.target.value)}
-                placeholder="student@university.edu"
+                placeholder={userRole === "admin" ? "admin@urban.edu" : "student@university.edu"}
                 required
               />
             </div>
@@ -411,12 +486,12 @@ function App() {
             </div>
 
             <button type="submit" className="btn-primary" style={{ justifyContent: "center", marginTop: "0.5rem" }}>
-              Authenticate & View Dashboard
+              Authenticate JWT & View Dashboard
             </button>
           </form>
 
           <div style={{ marginTop: "1.25rem", fontSize: "0.78rem", color: "var(--text-muted)" }}>
-            Demo Student ID: <strong style={{ color: "var(--accent-primary)" }}>STU-2026-8942</strong>
+            Current Selected Role: <strong style={{ color: userRole === "admin" ? "#f87171" : "var(--accent-primary)" }}>{userRole.toUpperCase()}</strong>
           </div>
         </div>
       </div>
@@ -433,253 +508,269 @@ function App() {
         setSearchQuery={setSearchQuery}
         onOpenStudentModal={() => setIsStudentModalOpen(true)}
         onOpenEnrollModal={() => setIsEnrollModalOpen(true)}
+        viewMode={viewMode}
+        onToggleViewMode={() => setViewMode(prev => prev === "admin" ? "student" : "admin")}
+        userRole={userRole}
+        jwtToken={viewMode === "admin" ? adminToken : studentToken}
+        onOpenTokenModal={() => setIsTokenModalOpen(true)}
       />
 
       <main className="dashboard-container">
-        {/* API Connection Warning Banner if offline */}
-        {apiError && (
-          <div style={{
-            background: "rgba(245, 158, 11, 0.15)",
-            border: "1px solid var(--accent-warning)",
-            color: "#fbbf24",
-            padding: "0.75rem 1.25rem",
-            borderRadius: "var(--radius-md)",
-            marginBottom: "1.5rem",
-            fontSize: "0.85rem",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between"
-          }}>
-            <span>⚡ {apiError}</span>
-            <button
-              onClick={fetchDashboardData}
-              style={{
-                background: "var(--accent-warning)",
-                border: "none",
-                color: "black",
-                padding: "0.3rem 0.75rem",
-                borderRadius: "var(--radius-sm)",
-                fontWeight: 600,
-                fontSize: "0.78rem",
-                cursor: "pointer"
-              }}
-            >
-              Retry API
-            </button>
-          </div>
-        )}
-
-        {/* Dashboard Welcome Header */}
-        <header className="dashboard-header">
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.25rem" }}>
-              <h1 className="welcome-title">Welcome back, {currentStudent?.name || "Student"}! 👋</h1>
-              <span style={{
-                background: "rgba(16, 185, 129, 0.15)",
-                color: "#34d399",
-                border: "1px solid rgba(16, 185, 129, 0.3)",
-                padding: "0.2rem 0.6rem",
-                borderRadius: "var(--radius-full)",
-                fontSize: "0.75rem",
-                fontWeight: 700
+        {/* Render Admin Dashboard if viewMode is admin */}
+        {viewMode === "admin" ? (
+          <AdminDashboard
+            adminToken={adminToken}
+            onSwitchToStudent={() => setViewMode("student")}
+          />
+        ) : (
+          /* Render Student Dashboard */
+          <>
+            {/* API Warning Banner */}
+            {apiError && (
+              <div style={{
+                background: "rgba(245, 158, 11, 0.15)",
+                border: "1px solid var(--accent-warning)",
+                color: "#fbbf24",
+                padding: "0.75rem 1.25rem",
+                borderRadius: "var(--radius-md)",
+                marginBottom: "1.5rem",
+                fontSize: "0.85rem",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between"
               }}>
-                🔒 Authenticated Student
-              </span>
-            </div>
-            <p className="welcome-subtitle">
-              Overview of your enrolled courses, real-time completion rates, and active study milestones.
-            </p>
-          </div>
+                <span>⚡ {apiError}</span>
+                <button
+                  onClick={fetchDashboardData}
+                  style={{
+                    background: "var(--accent-warning)",
+                    border: "none",
+                    color: "black",
+                    padding: "0.3rem 0.75rem",
+                    borderRadius: "var(--radius-sm)",
+                    fontWeight: 600,
+                    fontSize: "0.78rem",
+                    cursor: "pointer"
+                  }}
+                >
+                  Retry API
+                </button>
+              </div>
+            )}
 
-          <div className="header-cta-group">
-            <button className="btn-secondary" onClick={() => setIsAuthenticated(false)}>
-              🔒 Sign Out
-            </button>
-            <button className="btn-primary" onClick={() => setIsEnrollModalOpen(true)}>
-              + Enroll New Course
-            </button>
-          </div>
-        </header>
-
-        {/* KPI Status Summary Cards */}
-        <section className="stats-grid">
-          <StatCard
-            icon={<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>}
-            colorClass="icon-purple"
-            title="Total Enrolled Courses"
-            value={calculatedStats.totalEnrolled}
-            trend="All Enrolled"
-            trendType="neutral"
-            subtext="Total student enrollments"
-          />
-
-          <StatCard
-            icon={<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>}
-            colorClass="icon-cyan"
-            title="In-Progress Courses"
-            value={calculatedStats.inProgressCount}
-            trend="Active Learning"
-            trendType="up"
-            subtext="0% < Progress < 100%"
-          />
-
-          <StatCard
-            icon={<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>}
-            colorClass="icon-emerald"
-            title="Completed Courses"
-            value={calculatedStats.completedCount}
-            trend={`${calculatedStats.completedCount} Certificates`}
-            trendType="up"
-            subtext="100% Finished"
-          />
-
-          <StatCard
-            icon={<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>}
-            colorClass="icon-amber"
-            title="Not Started Courses"
-            value={calculatedStats.notStartedCount}
-            trend="Pending Start"
-            trendType="neutral"
-            subtext="0% Progress"
-          />
-        </section>
-
-        {/* Dashboard Container & Grid */}
-        <div className="dashboard-main-grid">
-          {/* Main Enrolled Courses View */}
-          <div>
-            <div className="section-card">
-              <div className="section-header">
-                <h2 className="section-title">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-                  </svg>
-                  Enrolled Course Progress ({filteredCourses.length})
-                </h2>
-
-                <div className="tab-group">
-                  <button
-                    className={`tab-btn ${statusTab === 'all' ? 'active' : ''}`}
-                    onClick={() => setStatusTab('all')}
-                  >
-                    All ({courses.length})
-                  </button>
-                  <button
-                    className={`tab-btn ${statusTab === 'in-progress' ? 'active' : ''}`}
-                    onClick={() => setStatusTab('in-progress')}
-                  >
-                    In-Progress ({calculatedStats.inProgressCount})
-                  </button>
-                  <button
-                    className={`tab-btn ${statusTab === 'completed' ? 'active' : ''}`}
-                    onClick={() => setStatusTab('completed')}
-                  >
-                    Completed ({calculatedStats.completedCount})
-                  </button>
-                  <button
-                    className={`tab-btn ${statusTab === 'not-started' ? 'active' : ''}`}
-                    onClick={() => setStatusTab('not-started')}
-                  >
-                    Not Started ({calculatedStats.notStartedCount})
-                  </button>
+            {/* Dashboard Welcome Header */}
+            <header className="dashboard-header">
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.25rem" }}>
+                  <h1 className="welcome-title">Welcome back, {currentStudent?.name || "Student"}! 👋</h1>
+                  <span style={{
+                    background: "rgba(16, 185, 129, 0.15)",
+                    color: "#34d399",
+                    border: "1px solid rgba(16, 185, 129, 0.3)",
+                    padding: "0.2rem 0.6rem",
+                    borderRadius: "var(--radius-full)",
+                    fontSize: "0.75rem",
+                    fontWeight: 700
+                  }}>
+                    🎓 Authenticated Student (JWT Verified)
+                  </span>
                 </div>
+                <p className="welcome-subtitle">
+                  Overview of your enrolled courses, real-time completion rates, and active study milestones.
+                </p>
               </div>
 
-              {/* Filters & Controls */}
-              <div className="filter-bar">
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Category:</span>
-                  <select
-                    className="select-input"
-                    value={categoryFilter}
-                    onChange={(e) => setCategoryFilter(e.target.value)}
-                  >
-                    {categoriesList.map(cat => (
-                      <option key={cat} value={cat}>
-                        {cat === "all" ? "All Categories" : cat}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Sort By:</span>
-                  <select
-                    className="select-input"
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                  >
-                    <option value="progress-desc">Progress: Highest First</option>
-                    <option value="progress-asc">Progress: Lowest First</option>
-                    <option value="title">Course Title (A-Z)</option>
-                  </select>
-                </div>
+              <div className="header-cta-group">
+                <button className="btn-secondary" onClick={() => setIsAuthenticated(false)}>
+                  🔒 Sign Out
+                </button>
+                <button className="btn-primary" onClick={() => setIsEnrollModalOpen(true)}>
+                  + Enroll New Course
+                </button>
               </div>
+            </header>
 
-              {/* Course Cards Layout Grid */}
-              {loading ? (
-                <div style={{ textAlign: "center", padding: "3rem", color: "var(--text-secondary)" }}>
-                  <div style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>⏳</div>
-                  Fetching real-time course progress from API...
-                </div>
-              ) : filteredCourses.length > 0 ? (
-                <div className="courses-grid">
-                  {filteredCourses.map((course) => (
-                    <CourseCard
-                      key={course.id}
-                      course={course}
-                      onSelectCourse={(c) => setSelectedCourseModal(c)}
-                      onOpenCertificate={(c) => setSelectedCertificateCourse(c)}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div style={{
-                  textAlign: "center",
-                  padding: "3rem 1.5rem",
-                  background: "var(--bg-card)",
-                  borderRadius: "var(--radius-md)",
-                  border: "1px dashed var(--border-color)"
-                }}>
-                  <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>📖</div>
-                  <h3 style={{ fontSize: "1.1rem", color: "var(--text-primary)", marginBottom: "0.25rem" }}>
-                    No Enrolled Courses Found
-                  </h3>
-                  <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
-                    {searchQuery ? `No matches for "${searchQuery}"` : `No courses in the "${statusTab}" filter.`}
-                  </p>
-                  <button className="btn-primary" onClick={() => setIsEnrollModalOpen(true)}>
-                    Explore Catalog & Enroll
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Right Column Analytics Sidebar */}
-          <div>
-            <div className="section-card">
-              <div className="section-header">
-                <h3 className="section-title">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <path d="M12 2a10 10 0 0 1 10 10"/>
-                  </svg>
-                  Overall Progress Rate
-                </h3>
-              </div>
-
-              <OverallProgressGauge
-                percentage={calculatedStats.overallRate}
-                totalCompleted={calculatedStats.totalCompletedLessons}
-                totalLessons={calculatedStats.totalAllLessons}
+            {/* KPI Status Summary Cards */}
+            <section className="stats-grid">
+              <StatCard
+                icon={<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>}
+                colorClass="icon-purple"
+                title="Total Enrolled Courses"
+                value={calculatedStats.totalEnrolled}
+                trend="All Enrolled"
+                trendType="neutral"
+                subtext="Total student enrollments"
               />
-            </div>
 
-            <WeeklyActivityChart data={weeklyActivity} />
-            <UpcomingDeadlines />
-          </div>
-        </div>
+              <StatCard
+                icon={<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>}
+                colorClass="icon-cyan"
+                title="In-Progress Courses"
+                value={calculatedStats.inProgressCount}
+                trend="Active Learning"
+                trendType="up"
+                subtext="0% < Progress < 100%"
+              />
+
+              <StatCard
+                icon={<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>}
+                colorClass="icon-emerald"
+                title="Completed Courses"
+                value={calculatedStats.completedCount}
+                trend={`${calculatedStats.completedCount} Certificates`}
+                trendType="up"
+                subtext="100% Finished"
+              />
+
+              <StatCard
+                icon={<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>}
+                colorClass="icon-amber"
+                title="Not Started Courses"
+                value={calculatedStats.notStartedCount}
+                trend="Pending Start"
+                trendType="neutral"
+                subtext="0% Progress"
+              />
+            </section>
+
+            {/* Dashboard Container & Grid */}
+            <div className="dashboard-main-grid">
+              {/* Main Enrolled Courses View */}
+              <div>
+                <div className="section-card">
+                  <div className="section-header">
+                    <h2 className="section-title">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                      </svg>
+                      Enrolled Course Progress ({filteredCourses.length})
+                    </h2>
+
+                    <div className="tab-group">
+                      <button
+                        className={`tab-btn ${statusTab === 'all' ? 'active' : ''}`}
+                        onClick={() => setStatusTab('all')}
+                      >
+                        All ({courses.length})
+                      </button>
+                      <button
+                        className={`tab-btn ${statusTab === 'in-progress' ? 'active' : ''}`}
+                        onClick={() => setStatusTab('in-progress')}
+                      >
+                        In-Progress ({calculatedStats.inProgressCount})
+                      </button>
+                      <button
+                        className={`tab-btn ${statusTab === 'completed' ? 'active' : ''}`}
+                        onClick={() => setStatusTab('completed')}
+                      >
+                        Completed ({calculatedStats.completedCount})
+                      </button>
+                      <button
+                        className={`tab-btn ${statusTab === 'not-started' ? 'active' : ''}`}
+                        onClick={() => setStatusTab('not-started')}
+                      >
+                        Not Started ({calculatedStats.notStartedCount})
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Filters & Controls */}
+                  <div className="filter-bar">
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Category:</span>
+                      <select
+                        className="select-input"
+                        value={categoryFilter}
+                        onChange={(e) => setCategoryFilter(e.target.value)}
+                      >
+                        {categoriesList.map(cat => (
+                          <option key={cat} value={cat}>
+                            {cat === "all" ? "All Categories" : cat}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Sort By:</span>
+                      <select
+                        className="select-input"
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value)}
+                      >
+                        <option value="progress-desc">Progress: Highest First</option>
+                        <option value="progress-asc">Progress: Lowest First</option>
+                        <option value="title">Course Title (A-Z)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Course Cards Layout Grid */}
+                  {loading ? (
+                    <div style={{ textAlign: "center", padding: "3rem", color: "var(--text-secondary)" }}>
+                      <div style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>⏳</div>
+                      Fetching real-time course progress from API...
+                    </div>
+                  ) : filteredCourses.length > 0 ? (
+                    <div className="courses-grid">
+                      {filteredCourses.map((course) => (
+                        <CourseCard
+                          key={course.id}
+                          course={course}
+                          onSelectCourse={(c) => setSelectedCourseModal(c)}
+                          onOpenCertificate={(c) => setSelectedCertificateCourse(c)}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{
+                      textAlign: "center",
+                      padding: "3rem 1.5rem",
+                      background: "var(--bg-card)",
+                      borderRadius: "var(--radius-md)",
+                      border: "1px dashed var(--border-color)"
+                    }}>
+                      <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>📖</div>
+                      <h3 style={{ fontSize: "1.1rem", color: "var(--text-primary)", marginBottom: "0.25rem" }}>
+                        No Enrolled Courses Found
+                      </h3>
+                      <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
+                        {searchQuery ? `No matches for "${searchQuery}"` : `No courses in the "${statusTab}" filter.`}
+                      </p>
+                      <button className="btn-primary" onClick={() => setIsEnrollModalOpen(true)}>
+                        Explore Catalog & Enroll
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column Analytics Sidebar */}
+              <div>
+                <div className="section-card">
+                  <div className="section-header">
+                    <h3 className="section-title">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M12 2a10 10 0 0 1 10 10"/>
+                      </svg>
+                      Overall Progress Rate
+                    </h3>
+                  </div>
+
+                  <OverallProgressGauge
+                    percentage={calculatedStats.overallRate}
+                    totalCompleted={calculatedStats.totalCompletedLessons}
+                    totalLessons={calculatedStats.totalAllLessons}
+                  />
+                </div>
+
+                <WeeklyActivityChart data={weeklyActivity} />
+                <UpcomingDeadlines />
+              </div>
+            </div>
+          </>
+        )}
       </main>
 
       {/* Modals */}
@@ -715,6 +806,14 @@ function App() {
           currentStudent={currentStudent}
           onSelectStudent={(st) => setCurrentStudent(st)}
           onClose={() => setIsStudentModalOpen(false)}
+        />
+      )}
+
+      {isTokenModalOpen && (
+        <JwtTokenModal
+          studentToken={studentToken}
+          adminToken={adminToken}
+          onClose={() => setIsTokenModalOpen(false)}
         />
       )}
     </div>
