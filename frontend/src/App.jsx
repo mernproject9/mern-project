@@ -18,7 +18,23 @@ function App() {
   return (
     <div className="container">
       <h1>User Account & Role Manager</h1>
- 
+{student && (
+  <nav>
+    <h3>Navigation</h3>
+
+    {student.role === "Admin" && (
+      <p>🏠 Dashboard | 👥 Users | ⚙️ Settings</p>
+    )}
+
+    {student.role === "Instructor" && (
+      <p>🏠 Dashboard | 📚 Courses | 📝 Students</p>
+    )}
+
+    {student.role === "Student" && (
+      <p>🏠 Dashboard | 📖 My Courses | 🎓 Profile</p>
+    )}
+  </nav>
+)} 
       <StudentForm setStudent={setStudent} />
  
       <hr />

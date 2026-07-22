@@ -17,44 +17,44 @@ function StudentForm({ setStudent }) {
     });
   };
 
- const handleSubmit = async (event) => {
-  event.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
 
-  try {
-    const response = await fetch("http://localhost:3000/students", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(formData),
-    });
-
-    const data = await response.json();
-
-    if (response.ok) {
-      alert("Registration Successful!");
-      if (setStudent) {
-  setStudent(data);
-}
-
-      setFormData({
-        name: "",
-        email: "",
-        password: "",
-        role: "Student",
+    try {
+      const response = await fetch("http://localhost:3000/students", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
       });
-    } else {
-      alert(data.message);
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert("Registration Successful!");
+
+        if (setStudent) {
+          setStudent(data);
+        }
+
+        setFormData({
+          name: "",
+          email: "",
+          password: "",
+          role: "Student",
+        });
+      } else {
+        alert(data.message);
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Server Error");
     }
-  } catch (error) {
-    console.error(error);
-    alert("Server Error");
-  }
-};
+  };
 
   return (
     <form onSubmit={handleSubmit}>
-
       <label>
         Name
         <input
@@ -77,17 +77,16 @@ function StudentForm({ setStudent }) {
         />
       </label>
 
-   
       <label>
-  Password
-  <input
-    type="password"
-    name="password"
-    value={formData.password}
-    onChange={handleChange}
-    required
-  />
-</label>
+        Password
+        <input
+          type="password"
+          name="password"
+          value={formData.password}
+          onChange={handleChange}
+          required
+        />
+      </label>
 
       <label>
         Role
@@ -104,7 +103,6 @@ function StudentForm({ setStudent }) {
       </label>
 
       <button type="submit">Sign Up</button>
-
     </form>
   );
 }
