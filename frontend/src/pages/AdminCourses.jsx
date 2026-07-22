@@ -237,6 +237,51 @@ const AdminCourses = () => {
     }
   };
 
+  // Download CSV report for selected course
+  const [downloadingCourseId, setDownloadingCourseId] = useState(null);
+  const handleDownloadCsvReport = async (courseId) => {
+    setDownloadingCourseId(courseId || "all");
+    try {
+      const url = courseId && courseId !== "all"
+        ? `${API_BASE}/enrollments/admin/reports/csv?courseId=${courseId}`
+        : `${API_BASE}/enrollments/admin/reports/csv`;
+
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || "Failed to download CSV report");
+      }
+
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+
+      let filename = "course_progress_report.csv";
+      const disposition = response.headers.get("Content-Disposition");
+      if (disposition && disposition.includes("filename=")) {
+        const match = disposition.match(/filename="?([^";]+)"?/);
+        if (match && match[1]) filename = match[1];
+      }
+
+      a.setAttribute("download", filename);
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(downloadUrl);
+
+      showAlert("success", "Progress report CSV generated and downloaded successfully!");
+    } catch (error) {
+      console.error("Download CSV error:", error);
+      showAlert("danger", error.message || "Failed to generate CSV report");
+    } finally {
+      setDownloadingCourseId(null);
+    }
+  };
+
   // Filtering
   const filteredCourses = courses.filter((course) => {
     const matchesSearch =
@@ -418,6 +463,15 @@ const AdminCourses = () => {
                         </td>
                         <td>
                           <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+                            <button
+                              className="btn btn-secondary"
+                              style={{ padding: "6px 12px", fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "4px" }}
+                              disabled={downloadingCourseId === course._id}
+                              onClick={() => handleDownloadCsvReport(course._id)}
+                              title="Download progress report CSV for this course"
+                            >
+                              <FileText size={14} /> {downloadingCourseId === course._id ? "Exporting..." : "Report CSV"}
+                            </button>
                             <button
                               className="btn btn-secondary"
                               style={{ padding: "6px 12px", fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "4px" }}
