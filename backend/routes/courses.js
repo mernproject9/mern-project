@@ -135,6 +135,9 @@ router.post("/", protect, admin, async (req, res) => {
 // @access  Private/Admin
 router.put("/:id", protect, admin, async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ message: "Course not found" });
+    }
     const course = await Course.findById(req.params.id);
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
@@ -142,15 +145,15 @@ router.put("/:id", protect, admin, async (req, res) => {
 
     const { title, description, category, duration, instructor, modules, imageUrl } = req.body;
 
-    course.title = title || course.title;
-    course.description = description || course.description;
-    course.category = category || course.category;
-    course.duration = duration || course.duration;
-    course.instructor = instructor || course.instructor;
-    if (modules) {
-      course.modules = typeof modules === "string" ? modules.split(",").map((m) => m.trim()) : modules;
+    if (title !== undefined) course.title = title;
+    if (description !== undefined) course.description = description;
+    if (category !== undefined) course.category = category;
+    if (duration !== undefined) course.duration = duration;
+    if (instructor !== undefined) course.instructor = instructor;
+    if (modules !== undefined) {
+      course.modules = typeof modules === "string" ? modules.split(",").map((m) => m.trim()).filter(Boolean) : modules;
     }
-    course.imageUrl = imageUrl !== undefined ? imageUrl : course.imageUrl;
+    if (imageUrl !== undefined) course.imageUrl = imageUrl;
 
     const updatedCourse = await course.save();
     res.json(updatedCourse);
@@ -165,12 +168,17 @@ router.put("/:id", protect, admin, async (req, res) => {
 // @access  Private/Admin
 router.delete("/:id", protect, admin, async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ message: "Course not found" });
+    }
     const course = await Course.findById(req.params.id);
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
     }
 
-    await course.remove ? await course.remove() : await Course.findByIdAndDelete(req.params.id);
+    await Course.findByIdAndDelete(req.params.id);
+    await Enrollment.deleteMany({ courseId: req.params.id });
+
     res.json({ message: "Course deleted successfully" });
   } catch (error) {
     console.error("Delete course error:", error);

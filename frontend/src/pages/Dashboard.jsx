@@ -17,7 +17,10 @@ import {
   Printer,
   Sparkles,
   Layers,
-  ShieldCheck
+  ShieldCheck,
+  Edit,
+  Trash2,
+  AlertTriangle
 } from "lucide-react";
 import AnalyticsChart from "../components/AnalyticsChart";
 import WeeklyActivityChart from "../components/WeeklyActivityChart";
@@ -35,7 +38,7 @@ const Dashboard = () => {
   }, [token, navigate]);
 
   // Sidebar navigation active state
-  const [activeTab, setActiveTab] = useState("dashboard"); // dashboard, courses, reports (admin)
+  const [activeTab, setActiveTab] = useState("dashboard"); // dashboard, courses, manage-courses, reports (admin)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // --- Learner State ---
@@ -61,6 +64,20 @@ const Dashboard = () => {
     instructor: "",
     modules: "",
   });
+
+  // Admin Course Edit & Delete State
+  const [editingCourse, setEditingCourse] = useState(null);
+  const [editFormData, setEditFormData] = useState({
+    title: "",
+    description: "",
+    category: "",
+    duration: "",
+    instructor: "",
+    modules: "",
+    imageUrl: "",
+  });
+  const [deletingCourse, setDeletingCourse] = useState(null);
+  const [isSubmittingCourse, setIsSubmittingCourse] = useState(false);
 
   // Common notifications
   const [alert, setAlert] = useState({ type: "", message: "" });
@@ -306,6 +323,77 @@ const Dashboard = () => {
     }
   };
 
+  // Pre-fill Edit Form with existing course details
+  const handleOpenEditModal = (course) => {
+    setEditingCourse(course);
+    setEditFormData({
+      title: course.title || "",
+      description: course.description || "",
+      category: course.category || "Web Development",
+      duration: course.duration || "",
+      instructor: course.instructor || "",
+      modules: Array.isArray(course.modules) ? course.modules.join(", ") : course.modules || "",
+      imageUrl: course.imageUrl || "",
+    });
+  };
+
+  // Send Update Course Request to Backend (PUT /api/courses/:id)
+  const handleUpdateCourse = async (e) => {
+    e.preventDefault();
+    if (!editingCourse) return;
+    setIsSubmittingCourse(true);
+    try {
+      const response = await fetch(`${API_BASE}/courses/${editingCourse._id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(editFormData),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to update course");
+      }
+
+      showAlert("success", `Course "${data.title}" updated successfully!`);
+      setEditingCourse(null);
+      fetchAdminData();
+    } catch (error) {
+      showAlert("danger", error.message);
+    } finally {
+      setIsSubmittingCourse(false);
+    }
+  };
+
+  // Send Delete Course Request to Backend (DELETE /api/courses/:id)
+  const handleConfirmDeleteCourse = async () => {
+    if (!deletingCourse) return;
+    setIsSubmittingCourse(true);
+    try {
+      const response = await fetch(`${API_BASE}/courses/${deletingCourse._id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to delete course");
+      }
+
+      showAlert("success", `Course "${deletingCourse.title}" deleted successfully!`);
+      setDeletingCourse(null);
+      fetchAdminData();
+    } catch (error) {
+      showAlert("danger", error.message);
+    } finally {
+      setIsSubmittingCourse(false);
+    }
+  };
+
   const handlePrintCertificate = () => {
     window.print();
   };
@@ -437,6 +525,17 @@ const Dashboard = () => {
             <>
               <li>
                 <a
+                  className={`sidebar-link ${activeTab === "manage-courses" ? "active" : ""}`}
+                  onClick={() => {
+                    setActiveTab("manage-courses");
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  <BookOpen size={20} /> Manage Courses
+                </a>
+              </li>
+              <li>
+                <a
                   className={`sidebar-link ${activeTab === "reports" ? "active" : ""}`}
                   onClick={() => {
                     setActiveTab("reports");
@@ -486,6 +585,7 @@ const Dashboard = () => {
           <h1 className="nav-title">
             {activeTab === "dashboard" && "Dashboard Overview"}
             {activeTab === "courses" && (user.role === "admin" ? "Academy Courses" : "Explore Courses")}
+            {activeTab === "manage-courses" && "Admin Course Management"}
             {activeTab === "reports" && "Education Metrics & Reports"}
             {activeTab === "verify-certificate" && "Certificate Authenticity Verification"}
           </h1>
@@ -894,8 +994,104 @@ const Dashboard = () => {
           )}
 
           {/* ========================================================= */}
-          {/* TAB 2: EXPLORE COURSES (Learners Browse / Admin Catalog) */}
+          {/* TAB 2: EXPLORE COURSES / ADMIN MANAGE COURSES */}
           {/* ========================================================= */}
+          {user.role === "admin" && activeTab === "manage-courses" && (
+            <div className="chart-card">
+              <div
+                className="card-header"
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "16px",
+                }}
+              >
+                <h3 className="card-title" style={{ margin: 0 }}>
+                  Manage Courses List ({availableCourses.length})
+                </h3>
+
+                <div className="search-input-wrapper" style={{ margin: 0 }}>
+                  <Search size={18} className="search-icon" />
+                  <input
+                    type="text"
+                    className="form-input search-input"
+                    placeholder="Search courses..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    style={{ width: "260px" }}
+                  />
+                </div>
+              </div>
+
+              {availableCourses.length > 0 ? (
+                <div className="table-wrapper">
+                  <table className="glass-table">
+                    <thead>
+                      <tr>
+                        <th>Course Title</th>
+                        <th>Category</th>
+                        <th>Instructor</th>
+                        <th>Duration</th>
+                        <th>Modules</th>
+                        <th style={{ textAlign: "right" }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {availableCourses
+                        .filter((course) => {
+                          const matchesSearch =
+                            (course.title || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            (course.description || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            (course.instructor || "").toLowerCase().includes(searchQuery.toLowerCase());
+                          return matchesSearch;
+                        })
+                        .map((course) => (
+                          <tr key={course._id}>
+                            <td>
+                              <div style={{ fontWeight: 600 }}>{course.title}</div>
+                              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                                {course.description}
+                              </span>
+                            </td>
+                            <td>
+                              <span className="badge badge-info">{course.category}</span>
+                            </td>
+                            <td>{course.instructor}</td>
+                            <td>{course.duration}</td>
+                            <td>{Array.isArray(course.modules) ? course.modules.length : 0} modules</td>
+                            <td>
+                              <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+                                <button
+                                  className="btn btn-secondary"
+                                  style={{ padding: "6px 12px", fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "4px" }}
+                                  onClick={() => handleOpenEditModal(course)}
+                                >
+                                  <Edit size={14} /> Edit
+                                </button>
+                                <button
+                                  className="btn btn-danger"
+                                  style={{ padding: "6px 12px", fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "4px" }}
+                                  onClick={() => setDeletingCourse(course)}
+                                >
+                                  <Trash2 size={14} /> Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)" }}>
+                  No courses registered yet.
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === "courses" && (
             <>
               {/* Filter controls */}
@@ -974,17 +1170,21 @@ const Dashboard = () => {
                               </Link>
                             </div>
                           ) : (
-                            <div
-                              style={{
-                                color: "var(--text-muted)",
-                                fontSize: "0.85rem",
-                                textAlign: "center",
-                                padding: "8px",
-                                border: "1px dashed var(--border-color)",
-                                borderRadius: "8px",
-                              }}
-                            >
-                              {course.modules.length} modules configured
+                            <div style={{ display: "flex", gap: "8px" }}>
+                              <button
+                                className="btn btn-secondary"
+                                style={{ flex: 1, padding: "8px", fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
+                                onClick={() => handleOpenEditModal(course)}
+                              >
+                                <Edit size={14} /> Edit
+                              </button>
+                              <button
+                                className="btn btn-danger"
+                                style={{ flex: 1, padding: "8px", fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
+                                onClick={() => setDeletingCourse(course)}
+                              >
+                                <Trash2 size={14} /> Delete
+                              </button>
                             </div>
                           )}
                         </div>
@@ -1285,6 +1485,153 @@ const Dashboard = () => {
                   <Printer size={16} /> Print / Save PDF
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL: EDIT COURSE (PRE-FILLED WITH EXISTING DATA) */}
+      {/* ========================================================= */}
+      {editingCourse && (
+        <div className="modal-overlay" onClick={() => setEditingCourse(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "600px" }}>
+            <div className="modal-header">
+              <h3 className="card-title">Edit Course Details</h3>
+              <button className="modal-close" onClick={() => setEditingCourse(null)}>
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handleUpdateCourse}>
+              <div className="modal-body" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                <div className="form-group" style={{ gridColumn: "span 2" }}>
+                  <label className="form-label">Course Title *</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={editFormData.title}
+                    onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Category *</label>
+                  <select
+                    className="form-select"
+                    value={editFormData.category}
+                    onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
+                  >
+                    <option value="Web Development">Web Development</option>
+                    <option value="Data Science">Data Science</option>
+                    <option value="Design">UI/UX Design</option>
+                    <option value="Product Management">Product Management</option>
+                    <option value="Marketing">Digital Marketing</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Duration *</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={editFormData.duration}
+                    onChange={(e) => setEditFormData({ ...editFormData, duration: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Instructor Name *</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={editFormData.instructor}
+                    onChange={(e) => setEditFormData({ ...editFormData, instructor: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Image URL</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={editFormData.imageUrl}
+                    onChange={(e) => setEditFormData({ ...editFormData, imageUrl: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group" style={{ gridColumn: "span 2" }}>
+                  <label className="form-label">Modules (Comma Separated) *</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={editFormData.modules}
+                    onChange={(e) => setEditFormData({ ...editFormData, modules: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="form-group" style={{ gridColumn: "span 2" }}>
+                  <label className="form-label">Description *</label>
+                  <textarea
+                    className="form-input"
+                    rows="3"
+                    value={editFormData.description}
+                    onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                    required
+                  ></textarea>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setEditingCourse(null)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={isSubmittingCourse}>
+                  {isSubmittingCourse ? "Saving Changes..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL: DELETE COURSE CONFIRMATION PROMPT */}
+      {/* ========================================================= */}
+      {deletingCourse && (
+        <div className="modal-overlay" onClick={() => setDeletingCourse(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "480px" }}>
+            <div className="modal-header">
+              <h3 className="card-title" style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--color-danger)" }}>
+                <AlertTriangle size={20} /> Delete Course Confirmation
+              </h3>
+              <button className="modal-close" onClick={() => setDeletingCourse(null)}>
+                &times;
+              </button>
+            </div>
+            <div className="modal-body">
+              <p style={{ color: "var(--text-primary)", fontSize: "1rem", lineHeight: "1.5" }}>
+                Are you sure you want to delete <strong style={{ color: "#fff" }}>"{deletingCourse.title}"</strong>?
+              </p>
+              <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", marginTop: "8px" }}>
+                This action is permanent and will remove the course from the database along with associated enrollments.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => setDeletingCourse(null)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                disabled={isSubmittingCourse}
+                onClick={handleConfirmDeleteCourse}
+              >
+                {isSubmittingCourse ? "Deleting..." : "Confirm Delete"}
+              </button>
             </div>
           </div>
         </div>
