@@ -51,6 +51,8 @@ const Dashboard = () => {
   // --- Admin State ---
   const [adminStats, setAdminStats] = useState(null);
   const [reports, setReports] = useState([]);
+  const [selectedReportCourse, setSelectedReportCourse] = useState("");
+  const [isGeneratingCsv, setIsGeneratingCsv] = useState(false);
   const [newCourse, setNewCourse] = useState({
     title: "",
     description: "",
@@ -147,6 +149,50 @@ const Dashboard = () => {
       }
     }
   }, [user, token, fetchLearnerData, fetchAdminData]);
+
+  // Handle CSV Progress Report Generation & Download (Admin)
+  const handleDownloadCsvReport = async () => {
+    setIsGeneratingCsv(true);
+    try {
+      const url = selectedReportCourse
+        ? `${API_BASE}/enrollments/admin/reports/csv?courseId=${selectedReportCourse}`
+        : `${API_BASE}/enrollments/admin/reports/csv`;
+
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || "Failed to download CSV report");
+      }
+
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+
+      let filename = "course_progress_report.csv";
+      const disposition = response.headers.get("Content-Disposition");
+      if (disposition && disposition.includes("filename=")) {
+        const match = disposition.match(/filename="?([^";]+)"?/);
+        if (match && match[1]) filename = match[1];
+      }
+
+      a.setAttribute("download", filename);
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(downloadUrl);
+
+      showAlert("success", "Progress report CSV generated and downloaded successfully!");
+    } catch (error) {
+      console.error("Download CSV error:", error);
+      showAlert("danger", error.message || "Failed to generate CSV report");
+    } finally {
+      setIsGeneratingCsv(false);
+    }
+  };
 
   // Handle Course Enrollment
   const handleEnroll = async (courseId) => {
@@ -960,112 +1006,152 @@ const Dashboard = () => {
           {/* ========================================================= */}
           {user.role === "admin" && activeTab === "reports" && (
             <div className="chart-card">
-              <div className="card-header">
-                <h3 className="card-title">Learners Education Progress Reports</h3>
-                <div>
+              <div
+                className="card-header"
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: "16px",
+                }}
+              >
+                <h3 className="card-title" style={{ margin: 0 }}>
+                  Learners Education Progress Reports
+                </h3>
+
+                <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <label
+                      htmlFor="course-select-report"
+                      style={{ fontSize: "0.85rem", color: "var(--text-secondary)", whiteSpace: "nowrap" }}
+                    >
+                      Select Course:
+                    </label>
+                    <select
+                      id="course-select-report"
+                      className="form-select"
+                      value={selectedReportCourse}
+                      onChange={(e) => setSelectedReportCourse(e.target.value)}
+                      style={{ minWidth: "220px", fontSize: "0.85rem", padding: "8px 12px" }}
+                    >
+                      <option value="">All Courses</option>
+                      {availableCourses.map((course) => (
+                        <option key={course._id} value={course._id}>
+                          {course.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   <button
-                    className="btn btn-secondary"
-                    style={{ fontSize: "0.85rem", padding: "8px 16px" }}
-                    onClick={() => {
-                      // Generate and download mock report CSV
-                      const headers = ["Student Name", "Email", "Course Enrolled", "Instructor", "Category", "Progress", "Status", "Certificate ID"];
-                      const rows = reports.map((r) => [
-                        r.studentName,
-                        r.studentEmail,
-                        `"${r.courseTitle}"`,
-                        r.instructor,
-                        r.category,
-                        `${r.progress}%`,
-                        r.status,
-                        r.certificateId || "N/A",
-                      ]);
-                      const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-                      const encodedUri = encodeURI(csvContent);
-                      const link = document.createElement("a");
-                      link.setAttribute("href", encodedUri);
-                      link.setAttribute("download", `urban_learner_report_${Date.now()}.csv`);
-                      document.body.appendChild(link);
-                      link.click();
-                      document.body.removeChild(link);
-                    }}
+                    id="generate-download-csv-btn"
+                    className="btn btn-primary"
+                    style={{ fontSize: "0.85rem", padding: "8px 18px", display: "flex", alignItems: "center", gap: "6px" }}
+                    disabled={isGeneratingCsv}
+                    onClick={handleDownloadCsvReport}
                   >
-                    Export to CSV
+                    <FileText size={16} />
+                    {isGeneratingCsv ? "Generating CSV..." : "Generate & Download CSV"}
                   </button>
                 </div>
               </div>
 
-              {reports.length > 0 ? (
-                <div className="table-wrapper">
-                  <table className="glass-table">
-                    <thead>
-                      <tr>
-                        <th>Learner Name</th>
-                        <th>Course Enrolled</th>
-                        <th>Progress</th>
-                        <th>Status</th>
-                        <th>Certificate Details</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {reports.map((report) => (
-                        <tr key={report.enrollmentId}>
-                          <td>
-                            <div style={{ fontWeight: 600 }}>{report.studentName}</div>
-                            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                              {report.studentEmail}
-                            </span>
-                          </td>
-                          <td>
-                            <div style={{ fontWeight: 600 }}>{report.courseTitle}</div>
-                            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                              {report.category} | {report.instructor}
-                            </span>
-                          </td>
-                          <td>
-                            <div style={{ minWidth: "120px" }}>
-                              <div className="progress-info">
-                                <span>{report.progress}%</span>
-                              </div>
-                              <div className="progress-track">
-                                <div className="progress-fill" style={{ width: `${report.progress}%` }}></div>
-                              </div>
-                            </div>
-                          </td>
-                          <td>
-                            {report.status === "completed" ? (
-                              <span className="badge badge-success">Completed</span>
-                            ) : (
-                              <span className="badge badge-info">Learning</span>
-                            )}
-                          </td>
-                          <td>
-                            {report.certificateId ? (
-                              <span
-                                style={{
-                                  fontSize: "0.8rem",
-                                  fontFamily: "monospace",
-                                  background: "rgba(255,255,255,0.04)",
-                                  padding: "4px 8px",
-                                  borderRadius: "4px",
-                                  border: "1px solid var(--border-color)",
-                                }}
-                              >
-                                {report.certificateId}
-                              </span>
-                            ) : (
-                              <span style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>Pending</span>
-                            )}
-                          </td>
+              {(() => {
+                const displayedReports = reports.filter((report) => {
+                  if (!selectedReportCourse || selectedReportCourse === "all") return true;
+                  const cId = typeof report.courseId === "object" && report.courseId !== null ? report.courseId._id : report.courseId;
+                  return cId === selectedReportCourse;
+                });
+
+                return displayedReports.length > 0 ? (
+                  <div className="table-wrapper">
+                    <table className="glass-table">
+                      <thead>
+                        <tr>
+                          <th>Learner Name</th>
+                          <th>Course Enrolled</th>
+                          <th>Status</th>
+                          <th>Score</th>
+                          <th>Progress</th>
+                          <th>Certificate Details</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)" }}>
-                  No learners enrolled in any course.
-                </div>
-              )}
+                      </thead>
+                      <tbody>
+                        {displayedReports.map((report) => {
+                          const currentScore = report.score !== undefined ? report.score : report.progress;
+                          return (
+                            <tr key={report.enrollmentId}>
+                              <td>
+                                <div style={{ fontWeight: 600 }}>{report.studentName}</div>
+                                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                                  {report.studentEmail}
+                                </span>
+                              </td>
+                              <td>
+                                <div style={{ fontWeight: 600 }}>{report.courseTitle}</div>
+                                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                                  {report.category} | {report.instructor}
+                                </span>
+                              </td>
+                              <td>
+                                {report.status === "completed" ? (
+                                  <span className="badge badge-success">Completed</span>
+                                ) : (
+                                  <span className="badge badge-info">Learning</span>
+                                )}
+                              </td>
+                              <td>
+                                <span
+                                  style={{
+                                    fontWeight: 600,
+                                    color: currentScore >= 80 ? "var(--color-success)" : "var(--text-primary)",
+                                    fontSize: "0.9rem",
+                                  }}
+                                >
+                                  {currentScore} / 100
+                                </span>
+                              </td>
+                              <td>
+                                <div style={{ minWidth: "120px" }}>
+                                  <div className="progress-info">
+                                    <span>{report.progress}%</span>
+                                  </div>
+                                  <div className="progress-track">
+                                    <div className="progress-fill" style={{ width: `${report.progress}%` }}></div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td>
+                                {report.certificateId ? (
+                                  <span
+                                    style={{
+                                      fontSize: "0.8rem",
+                                      fontFamily: "monospace",
+                                      background: "rgba(255,255,255,0.04)",
+                                      padding: "4px 8px",
+                                      borderRadius: "4px",
+                                      border: "1px solid var(--border-color)",
+                                    }}
+                                  >
+                                    {report.certificateId}
+                                  </span>
+                                ) : (
+                                  <span style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>Pending</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)" }}>
+                    No learners found for the selected report criteria.
+                  </div>
+                );
+              })()}
             </div>
           )}
 

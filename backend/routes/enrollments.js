@@ -5,6 +5,7 @@ const Enrollment = require("../models/Enrollment");
 const Course = require("../models/Course");
 const User = require("../models/User");
 const { protect, admin } = require("../middleware/auth");
+const { generateProgressCsv } = require("../utils/csvGenerator");
 
 // @desc    Enroll in a course
 // @route   POST /enrollments
@@ -130,6 +131,11 @@ router.put("/my/:courseId/progress", protect, async (req, res) => {
 
     enrollment.completedModules = validCompleted;
     enrollment.progress = progressPercent;
+    if (req.body.score !== undefined) {
+      enrollment.score = Math.min(100, Math.max(0, Number(req.body.score)));
+    } else {
+      enrollment.score = progressPercent;
+    }
 
     if (progressPercent === 100) {
       if (enrollment.status !== "completed") {
@@ -266,24 +272,36 @@ router.get("/admin/stats", protect, admin, async (req, res) => {
   }
 });
 
-// @desc    Get all students' progress reports (Admin only)
+// @desc    Get all students' progress reports (Admin only, with optional courseId filter)
 // @route   GET /enrollments/admin/reports
 // @access  Private/Admin
 router.get("/admin/reports", protect, admin, async (req, res) => {
   try {
-    const reports = await Enrollment.find()
+    const { courseId } = req.query;
+    let query = {};
+
+    if (courseId && courseId !== "all") {
+      if (mongoose.Types.ObjectId.isValid(courseId)) {
+        query.courseId = courseId;
+      }
+    }
+
+    const reports = await Enrollment.find(query)
       .populate("studentId", "name email")
       .populate("courseId", "title category instructor modules")
       .sort("-enrolledAt");
 
     const formattedReports = reports.map((r) => ({
       enrollmentId: r._id,
+      studentId: r.studentId ? r.studentId._id : null,
+      courseId: r.courseId ? r.courseId._id : null,
       studentName: r.studentId ? r.studentId.name : "Removed User",
       studentEmail: r.studentId ? r.studentId.email : "N/A",
       courseTitle: r.courseId ? r.courseId.title : "Removed Course",
       category: r.courseId ? r.courseId.category : "N/A",
       instructor: r.courseId ? r.courseId.instructor : "N/A",
       progress: r.progress,
+      score: r.score !== undefined ? r.score : r.progress,
       status: r.status,
       enrolledAt: r.enrolledAt,
       completedAt: r.completedAt,
@@ -296,6 +314,61 @@ router.get("/admin/reports", protect, admin, async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
+// @desc    Generate and download CSV progress report for selected course (Admin only)
+// @route   GET /enrollments/admin/reports/csv
+// @route   GET /enrollments/admin/course-report/:courseId/csv
+// @access  Private/Admin
+const downloadCsvReportHandler = async (req, res) => {
+  try {
+    const courseId = req.params.courseId || req.query.courseId;
+    let query = {};
+    let courseTitleSlug = "all_courses";
+
+    if (courseId && courseId !== "all") {
+      if (!mongoose.Types.ObjectId.isValid(courseId)) {
+        return res.status(400).json({ message: "Invalid course ID" });
+      }
+      query.courseId = courseId;
+      const course = await Course.findById(courseId);
+      if (course) {
+        courseTitleSlug = course.title.toLowerCase().replace(/[^a-z0-9]+/g, "_");
+      }
+    }
+
+    const reports = await Enrollment.find(query)
+      .populate("studentId", "name email")
+      .populate("courseId", "title category instructor modules")
+      .sort("-enrolledAt");
+
+    const formattedReports = reports.map((r) => ({
+      studentName: r.studentId ? r.studentId.name : "Removed User",
+      studentEmail: r.studentId ? r.studentId.email : "N/A",
+      courseTitle: r.courseId ? r.courseId.title : "Removed Course",
+      category: r.courseId ? r.courseId.category : "N/A",
+      instructor: r.courseId ? r.courseId.instructor : "N/A",
+      progress: r.progress,
+      score: r.score !== undefined ? r.score : r.progress,
+      status: r.status,
+      enrolledAt: r.enrolledAt,
+      completedAt: r.completedAt,
+      certificateId: r.certificateId,
+    }));
+
+    const csvContent = generateProgressCsv(formattedReports);
+    const filename = `course_progress_report_${courseTitleSlug}_${Date.now()}.csv`;
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    return res.status(200).send(csvContent);
+  } catch (error) {
+    console.error("Generate CSV report error:", error);
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+router.get("/admin/reports/csv", protect, admin, downloadCsvReportHandler);
+router.get("/admin/course-report/:courseId/csv", protect, admin, downloadCsvReportHandler);
 
 // @desc    Verify certificate authenticity by ID (Admin only)
 // @route   GET /enrollments/admin/verify-certificate/:certificateId

@@ -18,6 +18,12 @@ const enrollmentSchema = new mongoose.Schema(
       min: 0,
       max: 100,
     },
+    score: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100,
+    },
     completedModules: {
       type: [String], // Array of completed module names
       default: [],

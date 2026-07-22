@@ -178,4 +178,56 @@ router.delete("/:id", protect, admin, async (req, res) => {
   }
 });
 
+// @desc    Generate downloadable CSV report for a course (Admin only)
+// @route   GET /courses/:id/report/csv
+// @route   GET /courses/:id/report
+// @access  Private/Admin
+const { generateProgressCsv } = require("../utils/csvGenerator");
+
+const courseReportCsvHandler = async (req, res) => {
+  const courseId = req.params.id;
+  try {
+    if (!mongoose.Types.ObjectId.isValid(courseId)) {
+      return res.status(400).json({ message: "Invalid course ID" });
+    }
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ message: "Course not found" });
+    }
+
+    const reports = await Enrollment.find({ courseId })
+      .populate("studentId", "name email")
+      .populate("courseId", "title category instructor modules")
+      .sort("-enrolledAt");
+
+    const formattedReports = reports.map((r) => ({
+      studentName: r.studentId ? r.studentId.name : "Removed User",
+      studentEmail: r.studentId ? r.studentId.email : "N/A",
+      courseTitle: r.courseId ? r.courseId.title : "Removed Course",
+      category: r.courseId ? r.courseId.category : "N/A",
+      instructor: r.courseId ? r.courseId.instructor : "N/A",
+      progress: r.progress,
+      score: r.score !== undefined ? r.score : r.progress,
+      status: r.status,
+      enrolledAt: r.enrolledAt,
+      completedAt: r.completedAt,
+      certificateId: r.certificateId,
+    }));
+
+    const csvContent = generateProgressCsv(formattedReports);
+    const slug = course.title.toLowerCase().replace(/[^a-z0-9]+/g, "_");
+    const filename = `course_${slug}_progress_report_${Date.now()}.csv`;
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    return res.status(200).send(csvContent);
+  } catch (error) {
+    console.error("Course CSV report error:", error);
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+router.get("/:id/report/csv", protect, admin, courseReportCsvHandler);
+router.get("/:id/report", protect, admin, courseReportCsvHandler);
+
 module.exports = router;
