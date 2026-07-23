@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import StudentForm from "./components/StudentForm";
 import StudentCard from "./components/StudentCard";
+import CourseCatalog from "./components/CourseCatalog";
 import "./App.css";
  
 function App() {
@@ -38,12 +39,15 @@ function App() {
       <StudentForm setStudent={setStudent} />
  
       <hr />
- 
-      {student ? (
-        <StudentCard student={student} />
-      ) : (
-        <h3>No Profile Registered Yet</h3>
-      )}
+{student ? (
+  <>
+    <StudentCard student={student} />
+    <hr />
+    <CourseCatalog />
+  </>
+) : (
+  <h3>No Profile Registered Yet</h3>
+)}
     </div>
   );
 }
