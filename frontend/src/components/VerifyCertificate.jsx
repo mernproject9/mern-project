@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ShieldCheck, ShieldAlert, Search, RefreshCw, CheckCircle, XCircle, Award, User, BookOpen, Calendar } from "lucide-react";
+import { ShieldCheck, Search, RefreshCw, CheckCircle, XCircle, Award, User, BookOpen, Calendar } from "lucide-react";
 
 const VerifyCertificate = ({ token, API_BASE, reports = [] }) => {
   const [certInputId, setCertInputId] = useState("");

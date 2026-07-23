@@ -56,6 +56,7 @@ const AdminCourses = () => {
   // Delete confirmation modal state
   const [deletingCourse, setDeletingCourse] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [downloadingCourseId, setDownloadingCourseId] = useState(null);
 
   const showAlert = (type, message) => {
     setAlert({ type, message });
@@ -238,7 +239,6 @@ const AdminCourses = () => {
   };
 
   // Download CSV report for selected course
-  const [downloadingCourseId, setDownloadingCourseId] = useState(null);
   const handleDownloadCsvReport = async (courseId) => {
     setDownloadingCourseId(courseId || "all");
     try {
