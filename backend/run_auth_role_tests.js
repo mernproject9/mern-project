@@ -3,7 +3,7 @@ const jwt = require("jsonwebtoken");
 const app = require("./app");
 
 const PORT = 5006;
-const JWT_SECRET = process.env.JWT_SECRET || "urban_edtech_jwt_secret_key_2026";
+const JWT_SECRET = process.env.JWT_SECRET || "urban_edtech_jwt_secret_key_2026_antigravity";
 
 function request(method, path, headers = {}, body = null) {
   return new Promise((resolve, reject) => {
@@ -90,11 +90,23 @@ const server = app.listen(PORT, async () => {
     // 6. Test Student trying to access Dashboard Admin Stats route -> Expect 403 Forbidden
     console.log("\n[TASK 3] Test 6: Student token accessing Dashboard Admin stats (/api/dashboard/admin/stats) -> Expect 403");
     const res6 = await request("GET", "/api/dashboard/admin/stats", { Authorization: `Bearer ${studentToken}` });
-    console.log(`   Status: ${res6.status} | Response:`, res6.body.message);
+    console.log(`   Status: ${res6.status} | Response:`, res6.body.message || res6.body.error);
     if (res6.status !== 403) throw new Error(`Test 6 Failed. Expected 403, got ${res6.status}`);
 
+    // 7. Test Student accessing Student Portal Profile (/students/portal/profile) -> Expect 200 OK
+    console.log("\n[DEMO STUDENT ROUTE] Test 7: Student token accessing Student Portal Profile (/students/portal/profile) -> Expect 200");
+    const res7 = await request("GET", "/students/portal/profile", { Authorization: `Bearer ${studentToken}` });
+    console.log(`   Status: ${res7.status} | Response:`, res7.body.message);
+    if (res7.status !== 200) throw new Error(`Test 7 Failed. Expected 200, got ${res7.status}`);
+
+    // 8. Test Student attempting to POST /students (Admin-only route) -> Expect 403 Forbidden
+    console.log("\n[DEMO ADMIN ROUTE] Test 8: Student token attempting Admin POST /students -> Expect 403 Forbidden");
+    const res8 = await request("POST", "/students", { Authorization: `Bearer ${studentToken}` }, { name: "Fake Student", email: "fake@urban.edu", age: 20 });
+    console.log(`   Status: ${res8.status} | Response:`, res8.body.message || res8.body.error);
+    if (res8.status !== 403) throw new Error(`Test 8 Failed. Expected 403, got ${res8.status}`);
+
     console.log(`\n=================================================`);
-    console.log(`🎉 ALL 3 TASKS & ACCEPTANCE CRITERIA VERIFIED 100%! 🎉`);
+    console.log(`🎉 ALL TASKS & DEMONSTRATIONS VERIFIED 100%! 🎉`);
     console.log(`=================================================\n`);
   } catch (err) {
     console.error("\n❌ TEST FAILED:", err.message);
