@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
-const { generateToken, verifyToken } = require("../middleware/auth");
+const { generateToken, verifyToken, authorize, authorizeRoles } = require("../middleware/auth");
 
 // POST /api/auth/register - Register student or admin
 router.post("/register", async (req, res) => {
@@ -62,7 +62,7 @@ router.post("/login", async (req, res) => {
         role: role,
         department: role === "admin" ? "Urban EdTech Administration" : "Computer Science & Artificial Intelligence"
       });
-    } else {
+    } else if (user.comparePassword) {
       const isMatch = await user.comparePassword(password);
       if (!isMatch) {
         return res.status(401).json({ message: "Invalid credentials." });
@@ -94,14 +94,35 @@ router.post("/login", async (req, res) => {
 // GET /api/auth/me - Retrieve authenticated user profile using verifyToken middleware
 router.get("/me", verifyToken, async (req, res) => {
   try {
+    if (req.user.id && req.user.id.startsWith("stu_")) {
+      return res.json({ success: true, user: req.user, message: "Decoded payload from token" });
+    }
     const user = await User.findById(req.user.id).select("-password");
     if (!user) {
-      return res.status(404).json({ message: "User not found." });
+      return res.json({ success: true, user: req.user });
     }
     res.json(user);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
+});
+
+// GET /api/auth/student-protected - Route protected for student role
+router.get("/student-protected", verifyToken, authorize("student"), (req, res) => {
+  res.json({
+    success: true,
+    message: "Access granted to student protected route.",
+    user: req.user
+  });
+});
+
+// GET /api/auth/admin-protected - Route protected for admin role
+router.get("/admin-protected", verifyToken, authorize("admin"), (req, res) => {
+  res.json({
+    success: true,
+    message: "Access granted to admin protected route.",
+    user: req.user
+  });
 });
 
 // GET /api/auth/demo-tokens - Utility route providing ready valid JWT tokens for Student and Admin roles

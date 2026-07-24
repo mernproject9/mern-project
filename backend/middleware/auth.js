@@ -3,7 +3,10 @@ const jwt = require("jsonwebtoken");
 const JWT_SECRET = process.env.JWT_SECRET || "urban_edtech_jwt_secret_key_2026_antigravity";
 
 /**
- * Middleware to extract, parse, and verify JWT from Authorization header
+ * Task 1 & Task 2: Parse and verify JWT from Authorization header
+ * - Extract token from request header ("Bearer <token>")
+ * - Verify token signature and decode payload
+ * - Attach decoded user info to req.user
  */
 const verifyToken = (req, res, next) => {
   const authHeader = req.headers.authorization || req.headers.Authorization;
@@ -31,8 +34,11 @@ const verifyToken = (req, res, next) => {
 };
 
 /**
- * Reusable Middleware to restrict route access based on required user roles.
- * Usage: authorize("admin") or authorize("student", "admin")
+ * Task 3: Check user role in decoded JWT against required role for route.
+ * - Reusable across multiple routes.
+ * - Returns 403 Forbidden if user role does not match required role.
+ * 
+ * Usage: authorizeRoles("admin") or authorize("student", "admin")
  */
 const authorize = (...allowedRoles) => {
   return (req, res, next) => {
@@ -43,7 +49,10 @@ const authorize = (...allowedRoles) => {
       });
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
+    const userRole = req.user.role ? req.user.role.toLowerCase() : "";
+    const normalizedAllowed = allowedRoles.map((role) => role.toLowerCase());
+
+    if (!normalizedAllowed.includes(userRole)) {
       return res.status(403).json({
         error: "Forbidden",
         message: `Forbidden: Access denied for role '${req.user.role}'. Required role: ${allowedRoles.join(" or ")}.`
@@ -70,9 +79,17 @@ const generateToken = (userPayload, expiresIn = "7d") => {
   );
 };
 
+// Aliases for comprehensive naming conventions across codebase
+const authenticateToken = verifyToken;
+const authorizeRoles = authorize;
+const checkRole = authorize;
+
 module.exports = {
   verifyToken,
+  authenticateToken,
   authorize,
+  authorizeRoles,
+  checkRole,
   generateToken,
   JWT_SECRET
 };

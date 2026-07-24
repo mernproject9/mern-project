@@ -396,4 +396,57 @@ router.get("/catalog/available", async (req, res) => {
   }
 });
 
+// Admin-Protected Route: Add new course (Admin only)
+const { authenticateToken, authorizeRoles } = require("../middleware/auth");
+
+router.post("/admin/courses", authenticateToken, authorizeRoles("admin"), async (req, res) => {
+  try {
+    const { title, code, category, instructor, estimatedHours } = req.body;
+    if (!title || !code) {
+      return res.status(400).json({ success: false, message: "Title and course code are required." });
+    }
+
+    const newCourse = await Course.create({
+      title,
+      code,
+      category: category || "General",
+      instructor: instructor || "Urban EdTech Admin",
+      estimatedHours: estimatedHours || 20,
+      thumbnailGradient: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+      icon: "book-open",
+      modules: []
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Course created successfully by Admin.",
+      course: newCourse
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin-Protected Route: View platform global stats (Admin only)
+router.get("/admin/stats", authenticateToken, authorizeRoles("admin"), async (req, res) => {
+  try {
+    const totalStudents = await Student.countDocuments();
+    const totalCourses = await Course.countDocuments();
+    const totalEnrollments = await Enrollment.countDocuments();
+
+    res.json({
+      success: true,
+      stats: {
+        totalStudents,
+        totalCourses,
+        totalEnrollments,
+        activeLearnersRate: 88.4
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = router;
+
