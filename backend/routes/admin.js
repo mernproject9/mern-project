@@ -39,41 +39,104 @@ router.get("/overview", async (req, res) => {
   }
 });
 
-// POST /api/admin/courses - Add new course (Admin Only)
+// GET /api/admin/courses - Retrieve list of all courses saved in DB (Admin Only)
+router.get("/courses", async (req, res) => {
+  try {
+    const courses = await Course.find().sort({ createdAt: -1 });
+    res.json({
+      success: true,
+      count: courses.length,
+      courses
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// POST /api/admin/courses - Add new course to database (Admin Only)
 router.post("/courses", async (req, res) => {
   try {
-    const { title, code, category, instructor, instructorRole, thumbnailGradient, icon, estimatedHours, modules } = req.body;
+    const {
+      title,
+      code,
+      category,
+      description,
+      duration,
+      estimatedHours,
+      instructor,
+      instructorRole,
+      thumbnailGradient,
+      icon,
+      modules
+    } = req.body;
 
-    if (!title || !code) {
-      return res.status(400).json({ message: "Course title and code are required." });
+    const errors = {};
+
+    if (!title || !title.trim()) errors.title = "Course title is required.";
+    if (!category || !category.trim()) errors.category = "Category is required.";
+    if (!description || !description.trim()) errors.description = "Course description is required.";
+    if (!duration || !duration.trim()) errors.duration = "Course duration is required.";
+
+    if (Object.keys(errors).length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed. All required fields (title, description, category, duration) must be provided.",
+        errors
+      });
     }
 
-    const existingCourse = await Course.findOne({ code: code.toUpperCase() });
-    if (existingCourse) {
-      return res.status(400).json({ message: `Course with code ${code} already exists.` });
+    // Auto-generate code if omitted
+    let courseCode = code && code.trim() ? code.trim().toUpperCase() : `CRS-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const existingCourse = await Course.findOne({ code: courseCode });
+    if (existingCourse && code && code.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: `Course with code "${courseCode}" already exists.`,
+        errors: { code: `Course code "${courseCode}" is already registered in database.` }
+      });
+    } else if (existingCourse) {
+      courseCode = `CRS-${Date.now().toString().slice(-4)}`;
     }
 
-    const totalL = modules ? modules.reduce((sum, m) => sum + (m.lessons ? m.lessons.length : 0), 0) : 10;
+    const parsedHours = Number(estimatedHours) || Number(String(duration).replace(/[^0-9.]/g, "")) || 10;
+    const durationStr = duration.trim();
+
+    const defaultModules = modules && modules.length > 0 ? modules : [
+      {
+        id: "m1",
+        title: "Module 1: Core Fundamentals & Overview",
+        lessons: [
+          { id: `l_${Date.now()}_1`, title: "Introduction & Setup", duration: "45m", completed: false },
+          { id: `l_${Date.now()}_2`, title: "Core Concepts & Architecture", duration: "50m", completed: false }
+        ]
+      }
+    ];
+
+    const totalL = defaultModules.reduce((sum, m) => sum + (m.lessons ? m.lessons.length : 0), 0);
 
     const newCourse = await Course.create({
-      title,
-      code: code.toUpperCase(),
-      category: category || "General",
-      instructor: instructor || "EdTech Staff",
-      instructorRole: instructorRole || "Course Lead",
+      title: title.trim(),
+      code: courseCode,
+      category: category.trim(),
+      description: description.trim(),
+      duration: durationStr,
+      estimatedHours: parsedHours,
+      instructor: (instructor && instructor.trim()) || "Urban EdTech Faculty",
+      instructorRole: instructorRole || "Senior Instructor",
       thumbnailGradient: thumbnailGradient || "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
       icon: icon || "code",
-      estimatedHours: estimatedHours || 30,
       totalLessons: totalL,
-      modules: modules || []
+      modules: defaultModules
     });
 
     res.status(201).json({
-      message: "Course created successfully by Admin",
+      success: true,
+      message: `Course "${newCourse.title}" created successfully and saved to database.`,
       course: newCourse
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 

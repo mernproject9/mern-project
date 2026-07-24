@@ -22,6 +22,8 @@ const courseSchema = new mongoose.Schema({
   thumbnailGradient: { type: String, default: "linear-gradient(135deg, #6366f1 0%, #a855f7 100%)" },
   icon: { type: String, default: "code" },
   totalLessons: { type: Number, default: 0 },
+  description: { type: String, default: "" },
+  duration: { type: String, default: "" },
   estimatedHours: { type: Number, default: 10 },
   modules: [moduleSchema],
 }, { timestamps: true });
