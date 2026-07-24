@@ -15,6 +15,7 @@ const authRouter = require("./routes/auth");
 const adminRouter = require("./routes/admin");
 const studentsRouter = require("./routes/students");
 const dashboardRouter = require("./routes/dashboard");
+const coursesRouter = require("./routes/courses");
 
 var app = express();
 
@@ -42,6 +43,7 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use("/api/auth", authRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/dashboard", dashboardRouter);
+app.use("/api/courses", coursesRouter);
 app.use("/students", studentsRouter);
 
 app.use(function (req, res, next) {
