@@ -194,7 +194,16 @@ function App() {
         throw new Error(`HTTP Error ${res.status}: Failed to load student progress`);
       }
       const data = await res.json();
-      if (data.courses) setCourses(data.courses);
+      if (data.courses) {
+        setCourses(data.courses);
+        const alreadyReached = new Set();
+        data.courses.forEach(c => {
+          if (c.reachedMilestones) {
+            c.reachedMilestones.forEach(m => alreadyReached.add(`${c.id}_${m}`));
+          }
+        });
+        setTriggeredMilestones(prev => new Set([...prev, ...alreadyReached]));
+      }
       if (data.student) setCurrentStudent(prev => ({ ...prev, ...data.student }));
     } catch (err) {
       console.warn("API Connection note:", err.message);

@@ -234,6 +234,7 @@ router.get("/me", authenticateToken, async (req, res) => {
         progressPercentage: pct,
         status,
         lastAccessed: enr.lastAccessed,
+        reachedMilestones: enr.reachedMilestones || [],
         modules: courseObj.modules || []
       };
     });
@@ -402,6 +403,7 @@ router.get("/:studentId", async (req, res) => {
         progressPercentage: pct,
         status,
         lastAccessed: enr.lastAccessed,
+        reachedMilestones: enr.reachedMilestones || [],
         nextLesson,
         modules: updatedModules
       };
