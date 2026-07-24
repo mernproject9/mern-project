@@ -3,6 +3,7 @@ const router = express.Router();
 const Student = require("../models/Student");
 const Course = require("../models/Course");
 const Enrollment = require("../models/Enrollment");
+const { authenticateToken, verifyToken, authorizeRoles } = require("../middleware/auth");
 
 // Sample courses for initial seed
 const sampleCoursesData = [
@@ -142,7 +143,130 @@ function getTotalLessons(course) {
   return course.modules.reduce((sum, mod) => sum + (mod.lessons ? mod.lessons.length : 0), 0);
 }
 
-// GET dashboard data for a student
+// GET dashboard data for logged-in user via JWT token
+router.get("/me", authenticateToken, async (req, res) => {
+  try {
+    let student = await Student.findOne({ email: req.user.email });
+    if (!student) {
+      student = await Student.create({
+        name: req.user.name || "Alex Morgan",
+        email: req.user.email || "alex.morgan@university.edu",
+        age: 22
+      });
+    }
+
+    // Ensure sample courses exist
+    let courses = await Course.find();
+    if (courses.length === 0) {
+      const createdCourses = [];
+      for (const cData of sampleCoursesData) {
+        let totalL = getTotalLessons(cData);
+        const c = await Course.create({ ...cData, totalLessons: totalL });
+        createdCourses.push(c);
+      }
+      courses = createdCourses;
+    }
+
+    // Ensure enrollments exist for student
+    let enrollments = await Enrollment.find({ student: student._id }).populate("course");
+    if (enrollments.length === 0) {
+      for (let i = 0; i < courses.length; i++) {
+        const c = courses[i];
+        let completedIds = i === 0 ? ["l101", "l102", "l103", "l104", "l201", "l202"]
+          : i === 1 ? ["ds_l101", "ds_l102", "ds_l103", "ds_l201", "ds_l202", "ds_l203", "ds_l301"]
+          : i === 2 ? ["ux_l101", "ux_l102"] : ["ops_l101", "ops_l102", "ops_l103", "ops_l104"];
+        const status = (i === 1 || i === 3) ? "completed" : "active";
+        const totalL = c.totalLessons || getTotalLessons(c) || 1;
+        const pct = Math.round((completedIds.length / totalL) * 100);
+
+        await Enrollment.create({
+          student: student._id,
+          course: c._id,
+          completedLessonIds: completedIds,
+          progressPercentage: Math.min(100, pct),
+          status: pct >= 100 ? "completed" : status,
+          lastAccessed: new Date(Date.now() - i * 3600000 * 24),
+        });
+      }
+      enrollments = await Enrollment.find({ student: student._id }).populate("course");
+    }
+
+    let totalCompletedLessons = 0;
+    let totalAllLessons = 0;
+    let completedCount = 0;
+    let inProgressCount = 0;
+    let notStartedCount = 0;
+
+    const processedCourses = enrollments.map((enr) => {
+      const courseObj = enr.course ? enr.course.toObject() : {};
+      const totalLessons = courseObj.totalLessons || getTotalLessons(courseObj) || 1;
+      const completedCountCourse = enr.completedLessonIds ? enr.completedLessonIds.length : 0;
+
+      totalCompletedLessons += completedCountCourse;
+      totalAllLessons += totalLessons;
+
+      const pct = Math.min(100, Math.round((completedCountCourse / totalLessons) * 100));
+      let status = "in-progress";
+
+      if (pct >= 100 || enr.status === "completed") {
+        status = "completed";
+        completedCount++;
+      } else if (pct === 0) {
+        status = "not-started";
+        notStartedCount++;
+      } else {
+        status = "in-progress";
+        inProgressCount++;
+      }
+
+      return {
+        id: courseObj._id,
+        enrollmentId: enr._id,
+        title: courseObj.title,
+        code: courseObj.code,
+        category: courseObj.category,
+        instructor: courseObj.instructor,
+        instructorRole: courseObj.instructorRole,
+        thumbnailGradient: courseObj.thumbnailGradient,
+        icon: courseObj.icon,
+        totalLessons,
+        completedLessons: completedCountCourse,
+        progressPercentage: pct,
+        status,
+        lastAccessed: enr.lastAccessed,
+        modules: courseObj.modules || []
+      };
+    });
+
+    const overallCompletionRate = totalAllLessons > 0 ? Math.round((totalCompletedLessons / totalAllLessons) * 100) : 0;
+
+    res.json({
+      success: true,
+      student: {
+        id: student._id,
+        name: student.name,
+        email: student.email,
+        age: student.age,
+        department: "Computer Science & Artificial Intelligence",
+        studentIdCode: "STU-2026-8942",
+      },
+      stats: {
+        totalEnrolled: enrollments.length,
+        inProgressCourses: inProgressCount,
+        completedCourses: completedCount,
+        notStartedCourses: notStartedCount,
+        overallCompletionRate,
+        totalCompletedLessons,
+        totalAllLessons
+      },
+      courses: processedCourses
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// GET dashboard data for a student by ID
 router.get("/:studentId", async (req, res) => {
   try {
     const { studentId } = req.params;
@@ -397,8 +521,6 @@ router.get("/catalog/available", async (req, res) => {
 });
 
 // Admin-Protected Route: Add new course (Admin only)
-const { authenticateToken, authorizeRoles } = require("../middleware/auth");
-
 router.post("/admin/courses", authenticateToken, authorizeRoles("admin"), async (req, res) => {
   try {
     const { title, code, category, instructor, estimatedHours } = req.body;

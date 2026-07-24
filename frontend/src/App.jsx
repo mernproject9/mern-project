@@ -181,7 +181,8 @@ function App() {
     try {
       const studentId = currentStudent?.id || "demo";
       const headers = studentToken ? { Authorization: `Bearer ${studentToken}` } : {};
-      const res = await fetch(`/api/dashboard/${studentId}`, { headers });
+      const endpoint = studentToken ? "/api/dashboard/me" : `/api/dashboard/${studentId}`;
+      const res = await fetch(endpoint, { headers });
       if (!res.ok) {
         throw new Error(`HTTP Error ${res.status}: Failed to load student progress`);
       }
@@ -198,7 +199,7 @@ function App() {
 
   useEffect(() => {
     fetchDashboardData();
-  }, [currentStudent?.id, isAuthenticated]);
+  }, [currentStudent?.id, isAuthenticated, studentToken]);
 
   const toggleTheme = () => {
     setTheme(prev => prev === "dark" ? "light" : "dark");
