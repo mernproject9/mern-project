@@ -1,7 +1,30 @@
 import { useState, useEffect } from "react";
 import StatCard from "./StatCard";
 
+// Helper function to decode JWT payload
+const parseJwt = (token) => {
+  try {
+    if (!token) return null;
+    const base64Url = token.split(".")[1];
+    if (!base64Url) return null;
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    return null;
+  }
+};
+
 export default function AdminDashboard({ adminToken, onSwitchToStudent }) {
+  // Decode JWT payload & check role before rendering form
+  const decodedPayload = parseJwt(adminToken);
+  const isAdminRole = decodedPayload && decodedPayload.role && decodedPayload.role.toLowerCase() === "admin";
+
   const [adminStats, setAdminStats] = useState({
     totalCourses: 0,
     totalStudents: 0,
@@ -91,11 +114,11 @@ export default function AdminDashboard({ adminToken, onSwitchToStudent }) {
   };
 
   useEffect(() => {
-    if (adminToken) {
+    if (adminToken && isAdminRole) {
       fetchAdminData();
       fetchCoursesList();
     }
-  }, [adminToken]);
+  }, [adminToken, isAdminRole]);
 
   // Client-side form validation
   const validateForm = () => {
@@ -137,6 +160,12 @@ export default function AdminDashboard({ adminToken, onSwitchToStudent }) {
     e.preventDefault();
     setFormSuccess(null);
     setFormError(null);
+
+    // Re-verify Admin Role before sending request
+    if (!isAdminRole) {
+      setFormError("Access Denied: Only users with 'admin' role in JWT token can submit this form.");
+      return;
+    }
 
     // Validate fields before sending request
     if (!validateForm()) {
@@ -215,17 +244,52 @@ export default function AdminDashboard({ adminToken, onSwitchToStudent }) {
     }
   };
 
-  // Access Control Guard
-  if (!adminToken) {
+  // Strict Access Control Guard - Check JWT and Admin Role before rendering form
+  if (!adminToken || !isAdminRole) {
     return (
-      <div className="section-card" style={{ textAlign: "center", padding: "3rem 1.5rem" }}>
+      <div className="section-card" style={{ textAlign: "center", padding: "3rem 1.5rem", maxWidth: "600px", margin: "2rem auto" }}>
         <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>🔒</div>
-        <h2 style={{ color: "var(--accent-danger)", marginBottom: "0.5rem" }}>Admin Privileges Required</h2>
-        <p style={{ color: "var(--text-secondary)", marginBottom: "1.5rem" }}>
-          Only authorized administrators can access the Add Course Form and Admin Management console.
+        <h2 style={{ color: "var(--accent-danger)", marginBottom: "0.5rem" }}>
+          Admin Privileges Required
+        </h2>
+        <p style={{ color: "var(--text-secondary)", marginBottom: "1.25rem", fontSize: "0.9rem" }}>
+          Form Access Denied: Adding courses is restricted strictly to authenticated users with <strong>admin</strong> role in their JWT token.
         </p>
-        <button className="btn-primary" onClick={onSwitchToStudent} style={{ margin: "0 auto" }}>
-          Return to Student View
+
+        {decodedPayload ? (
+          <div style={{
+            background: "rgba(239, 68, 68, 0.1)",
+            border: "1px solid rgba(239, 68, 68, 0.3)",
+            color: "#f87171",
+            padding: "0.75rem 1rem",
+            borderRadius: "var(--radius-sm)",
+            fontSize: "0.82rem",
+            marginBottom: "1.5rem",
+            fontFamily: "monospace",
+            textAlign: "left"
+          }}>
+            <div><strong>Decoded JWT User:</strong> {decodedPayload.name || decodedPayload.email || "Unknown"}</div>
+            <div><strong>Decoded JWT Role:</strong> "{decodedPayload.role || 'none'}"</div>
+            <div style={{ marginTop: "0.3rem", color: "var(--text-muted)", fontSize: "0.78rem" }}>
+              Required Role: <code>admin</code>
+            </div>
+          </div>
+        ) : (
+          <div style={{
+            background: "rgba(239, 68, 68, 0.1)",
+            border: "1px solid rgba(239, 68, 68, 0.3)",
+            color: "#f87171",
+            padding: "0.75rem 1rem",
+            borderRadius: "var(--radius-sm)",
+            fontSize: "0.82rem",
+            marginBottom: "1.5rem"
+          }}>
+            No valid Bearer JWT token detected in session.
+          </div>
+        )}
+
+        <button className="btn-primary" onClick={onSwitchToStudent} style={{ margin: "0 auto", justifyContent: "center" }}>
+          ← Return to Student View
         </button>
       </div>
     );
@@ -259,7 +323,7 @@ export default function AdminDashboard({ adminToken, onSwitchToStudent }) {
               fontSize: "0.75rem",
               fontWeight: 700
             }}>
-              🛡️ Admin Access Only
+              🛡️ Admin Verified ({decodedPayload.email})
             </span>
           </div>
           <p style={{ fontSize: "0.88rem", color: "var(--text-secondary)" }}>
@@ -299,7 +363,7 @@ export default function AdminDashboard({ adminToken, onSwitchToStudent }) {
             </span>
           </div>
           <code style={{ fontSize: "0.75rem", color: "var(--accent-primary)", opacity: 0.9 }}>
-            Protected Route: POST /api/admin/courses
+            JWT Verified: role = "{decodedPayload.role}"
           </code>
         </div>
       )}
@@ -317,7 +381,7 @@ export default function AdminDashboard({ adminToken, onSwitchToStudent }) {
         />
 
         <StatCard
-          icon={<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>}
+          icon={<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 1 0 7.75"/></svg>}
           colorClass="icon-cyan"
           title="Registered Students"
           value={adminStats.totalStudents}
@@ -373,7 +437,7 @@ export default function AdminDashboard({ adminToken, onSwitchToStudent }) {
               fontSize: "0.75rem",
               fontWeight: 700
             }}>
-              Admin Protected
+              JWT Admin Verified
             </span>
           </div>
 
