@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import StatCard from "./StatCard";
+import EnrollmentStatsChart from "./EnrollmentStatsChart";
 
 // Helper function to decode JWT payload
 const parseJwt = (token) => {
@@ -253,7 +254,7 @@ export default function AdminDashboard({ adminToken, onSwitchToStudent }) {
           Admin Privileges Required
         </h2>
         <p style={{ color: "var(--text-secondary)", marginBottom: "1.25rem", fontSize: "0.9rem" }}>
-          Form Access Denied: Adding courses is restricted strictly to authenticated users with <strong>admin</strong> role in their JWT token.
+          Dashboard Access Denied: Admin analytics and course management are restricted strictly to authenticated users with <strong>admin</strong> role in their JWT token.
         </p>
 
         {decodedPayload ? (
@@ -327,7 +328,7 @@ export default function AdminDashboard({ adminToken, onSwitchToStudent }) {
             </span>
           </div>
           <p style={{ fontSize: "0.88rem", color: "var(--text-secondary)" }}>
-            Build and manage courses, validate metadata fields, and save new course offerings to the database.
+            Real-time enrollment statistics, course catalog management, and student progress analytics.
           </p>
         </div>
 
@@ -410,6 +411,9 @@ export default function AdminDashboard({ adminToken, onSwitchToStudent }) {
           subtext="MongoDB Atlas Connected"
         />
       </div>
+
+      {/* Admin Enrollment Statistics Widget (Real-time Charts) */}
+      <EnrollmentStatsChart adminToken={adminToken} />
 
       {/* Main Section Grid: Add Course Form & Database Course List */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: "1.5rem" }}>

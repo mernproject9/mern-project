@@ -205,4 +205,140 @@ router.get("/students", async (req, res) => {
   }
 });
 
+// GET /api/admin/enrollment-stats & GET /api/admin/enrollments/stats - Aggregate course enrollments from MongoDB for chart visualization (Admin Only)
+const getEnrollmentStatsHandler = async (req, res) => {
+  try {
+    const allCourses = await Course.find().lean();
+
+    const aggregated = await Enrollment.aggregate([
+      {
+        $group: {
+          _id: "$course",
+          enrollmentCount: { $sum: 1 },
+          activeCount: {
+            $sum: { $cond: [{ $eq: ["$status", "active"] }, 1, 0] }
+          },
+          completedCount: {
+            $sum: { $cond: [{ $eq: ["$status", "completed"] }, 1, 0] }
+          },
+          bookmarkedCount: {
+            $sum: { $cond: [{ $eq: ["$status", "bookmarked"] }, 1, 0] }
+          },
+          avgProgress: { $avg: "$progressPercentage" }
+        }
+      }
+    ]);
+
+    const statsMap = new Map();
+    aggregated.forEach((item) => {
+      if (item._id) {
+        statsMap.set(item._id.toString(), item);
+      }
+    });
+
+    const chartData = allCourses.map((c) => {
+      const courseIdStr = c._id.toString();
+      const stat = statsMap.get(courseIdStr) || {
+        enrollmentCount: 0,
+        activeCount: 0,
+        completedCount: 0,
+        bookmarkedCount: 0,
+        avgProgress: 0
+      };
+
+      return {
+        courseId: c._id,
+        courseCode: c.code || "COURSE",
+        courseTitle: c.title,
+        category: c.category || "General",
+        duration: c.duration || "N/A",
+        instructor: c.instructor || "Faculty",
+        thumbnailGradient: c.thumbnailGradient || "linear-gradient(135deg, #6366f1 0%, #a855f7 100%)",
+        enrollmentCount: stat.enrollmentCount,
+        activeCount: stat.activeCount,
+        completedCount: stat.completedCount,
+        bookmarkedCount: stat.bookmarkedCount,
+        avgProgress: Math.round(stat.avgProgress || 0)
+      };
+    });
+
+    // Sort by enrollmentCount descending
+    chartData.sort((a, b) => b.enrollmentCount - a.enrollmentCount);
+
+    const categoryStatsMap = {};
+    chartData.forEach((item) => {
+      const cat = item.category;
+      categoryStatsMap[cat] = (categoryStatsMap[cat] || 0) + item.enrollmentCount;
+    });
+
+    const categoryData = Object.keys(categoryStatsMap).map((cat) => ({
+      category: cat,
+      count: categoryStatsMap[cat]
+    }));
+
+    const totalEnrollments = chartData.reduce((sum, item) => sum + item.enrollmentCount, 0);
+    const totalActive = chartData.reduce((sum, item) => sum + item.activeCount, 0);
+    const totalCompleted = chartData.reduce((sum, item) => sum + item.completedCount, 0);
+
+    res.json({
+      success: true,
+      message: "Enrollment statistics aggregated successfully from MongoDB",
+      requestedBy: req.user,
+      generatedAt: new Date(),
+      totalEnrollments,
+      totalActive,
+      totalCompleted,
+      totalCourses: allCourses.length,
+      chartData,
+      categoryData
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+router.get("/enrollment-stats", getEnrollmentStatsHandler);
+router.get("/enrollments/stats", getEnrollmentStatsHandler);
+
+// POST /api/admin/enrollments - Enroll a student in a course (Admin Only)
+router.post("/enrollments", async (req, res) => {
+  try {
+    const { studentId, courseId } = req.body;
+    if (!studentId || !courseId) {
+      return res.status(400).json({ success: false, message: "studentId and courseId are required." });
+    }
+
+    let student = await Student.findById(studentId);
+    if (!student) {
+      student = await Student.findOne();
+    }
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ success: false, message: "Course not found." });
+    }
+
+    const existing = await Enrollment.findOne({ student: student._id, course: course._id });
+    if (existing) {
+      return res.status(400).json({ success: false, message: "Student is already enrolled in this course." });
+    }
+
+    const newEnrollment = await Enrollment.create({
+      student: student._id,
+      course: course._id,
+      completedLessonIds: [],
+      progressPercentage: 0,
+      status: "active",
+      enrollmentDate: new Date()
+    });
+
+    res.status(201).json({
+      success: true,
+      message: `Student enrolled in "${course.title}" successfully.`,
+      enrollment: newEnrollment
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = router;
