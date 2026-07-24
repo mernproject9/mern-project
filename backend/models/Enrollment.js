@@ -18,6 +18,7 @@ const enrollmentSchema = new mongoose.Schema({
     enum: ["active", "completed", "bookmarked"],
     default: "active",
   },
+  reachedMilestones: [{ type: Number }], // Tracks milestones (25, 50, 75, 100) already triggered
   lastAccessed: { type: Date, default: Date.now },
   enrollmentDate: { type: Date, default: Date.now },
 }, { timestamps: true });

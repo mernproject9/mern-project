@@ -7,6 +7,7 @@ import StudentSwitcherModal from "./components/StudentSwitcherModal";
 import AdminDashboard from "./components/AdminDashboard";
 import StudentDashboard from "./components/StudentDashboard";
 import JwtTokenModal from "./components/JwtTokenModal";
+import MilestoneNotificationBanner from "./components/MilestoneNotificationBanner";
 
 // Initial fallback mock data
 const initialMockData = {
@@ -149,6 +150,12 @@ function App() {
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
+  const [milestoneNotifications, setMilestoneNotifications] = useState([]);
+  const [triggeredMilestones, setTriggeredMilestones] = useState(new Set());
+
+  const handleDismissNotification = (id) => {
+    setMilestoneNotifications(prev => prev.filter(n => n.id !== id));
+  };
 
   // Apply dark/light theme attribute to root
   useEffect(() => {
@@ -230,6 +237,33 @@ function App() {
         if (pct >= 100) status = "completed";
         else if (pct === 0) status = "not-started";
 
+        // Milestone Detection (25%, 50%, 75%, 100%)
+        const thresholds = [25, 50, 75, 100];
+        for (const t of thresholds) {
+          const key = `${c.id}_${t}`;
+          if (pct >= t && !triggeredMilestones.has(key)) {
+            setTriggeredMilestones(prev => new Set(prev).add(key));
+            let msg = "";
+            let badge = "🏆";
+            if (t === 25) { msg = `🌱 Off to a Great Start! You reached 25% completion in ${c.title}.`; badge = "🌱"; }
+            else if (t === 50) { msg = `⚡ Halfway Milestone Reached! You hit 50% completion in ${c.title}.`; badge = "⚡"; }
+            else if (t === 75) { msg = `🔥 In the Home Stretch! You reached 75% progress in ${c.title}.`; badge = "🔥"; }
+            else if (t === 100) { msg = `🏆 Course Completed! Congratulations on finishing ${c.title}. Your certificate is ready!`; badge = "🎓"; }
+
+            setMilestoneNotifications(prev => [
+              {
+                id: `ms_${key}_${Date.now()}`,
+                threshold: t,
+                courseTitle: c.title,
+                badgeIcon: badge,
+                message: msg
+              },
+              ...prev
+            ]);
+            break;
+          }
+        }
+
         let nextLesson = null;
         for (const mod of updatedModules) {
           for (const les of mod.lessons) {
@@ -264,11 +298,20 @@ function App() {
         "Content-Type": "application/json",
         ...(studentToken ? { Authorization: `Bearer ${studentToken}` } : {})
       };
-      await fetch(`/api/dashboard/${currentStudent?.id || 'demo'}/toggle-lesson`, {
+      const res = await fetch(`/api/dashboard/${currentStudent?.id || 'demo'}/toggle-lesson`, {
         method: "POST",
         headers,
         body: JSON.stringify({ courseId, lessonId })
       });
+      const data = await res.json();
+      if (data && data.milestoneNotification) {
+        setMilestoneNotifications(prev => {
+          if (prev.some(n => n.threshold === data.milestoneNotification.threshold && n.courseTitle === data.milestoneNotification.courseTitle)) {
+            return prev;
+          }
+          return [data.milestoneNotification, ...prev];
+        });
+      }
     } catch (e) {
       // Local state sync succeeds
     }
@@ -581,6 +624,12 @@ function App() {
           onClose={() => setIsTokenModalOpen(false)}
         />
       )}
+
+      {/* Dismissible Milestone Notifications */}
+      <MilestoneNotificationBanner
+        notifications={milestoneNotifications}
+        onDismiss={handleDismissNotification}
+      />
     </div>
   );
 }

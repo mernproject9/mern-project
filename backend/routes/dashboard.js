@@ -476,6 +476,49 @@ router.post("/:studentId/toggle-lesson", async (req, res) => {
     enrollment.progressPercentage = pct;
     enrollment.status = pct >= 100 ? "completed" : "active";
     enrollment.lastAccessed = new Date();
+
+    // Track Milestone Thresholds (25%, 50%, 75%, 100%)
+    if (!enrollment.reachedMilestones) {
+      enrollment.reachedMilestones = [];
+    }
+
+    const milestoneThresholds = [25, 50, 75, 100];
+    let newlyReachedMilestone = null;
+
+    for (const threshold of milestoneThresholds) {
+      if (pct >= threshold && !enrollment.reachedMilestones.includes(threshold)) {
+        enrollment.reachedMilestones.push(threshold);
+        const courseTitle = course ? course.title : "Course";
+        let message = "";
+        let badgeIcon = "🏆";
+
+        if (threshold === 25) {
+          message = `🌱 Off to a Great Start! You reached 25% completion in ${courseTitle}.`;
+          badgeIcon = "🌱";
+        } else if (threshold === 50) {
+          message = `⚡ Halfway Milestone Reached! You hit 50% completion in ${courseTitle}.`;
+          badgeIcon = "⚡";
+        } else if (threshold === 75) {
+          message = `🔥 In the Home Stretch! You reached 75% progress in ${courseTitle}.`;
+          badgeIcon = "🔥";
+        } else if (threshold === 100) {
+          message = `🏆 Course Completed! Congratulations on finishing ${courseTitle}. Your certificate is ready to download!`;
+          badgeIcon = "🎓";
+        }
+
+        newlyReachedMilestone = {
+          id: `ms_${threshold}_${Date.now()}`,
+          threshold,
+          courseId,
+          courseTitle,
+          badgeIcon,
+          message,
+          timestamp: new Date()
+        };
+        break; // Trigger one notification per progress update
+      }
+    }
+
     await enrollment.save();
 
     res.json({
@@ -484,7 +527,9 @@ router.post("/:studentId/toggle-lesson", async (req, res) => {
       lessonId,
       completedLessonIds: completedIds,
       progressPercentage: pct,
-      status: enrollment.status
+      status: enrollment.status,
+      reachedMilestones: enrollment.reachedMilestones,
+      milestoneNotification: newlyReachedMilestone
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
