@@ -138,9 +138,29 @@ export default function CourseProgressGrid({
 
       {/* Grid of Course Cards with Integrated Progress Bars */}
       {loading ? (
-        <div style={{ textAlign: "center", padding: "3rem", color: "var(--text-secondary)" }}>
-          <div style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>⏳</div>
-          Fetching real-time course progress from API...
+        <div className="courses-grid" aria-busy="true" aria-label="Loading enrolled courses">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="course-card"
+              style={{
+                opacity: 0.7,
+                animation: "pulse 1.5s infinite ease-in-out",
+                minHeight: "260px",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between"
+              }}
+            >
+              <div style={{ height: "100px", background: "var(--bg-tertiary)", borderRadius: "var(--radius-sm) var(--radius-sm) 0 0" }} />
+              <div style={{ padding: "1.25rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                <div style={{ height: "16px", width: "40%", background: "var(--border-color)", borderRadius: "4px" }} />
+                <div style={{ height: "24px", width: "85%", background: "var(--border-color)", borderRadius: "4px" }} />
+                <div style={{ height: "14px", width: "60%", background: "var(--border-color)", borderRadius: "4px" }} />
+                <div style={{ height: "12px", width: "100%", background: "var(--border-color)", borderRadius: "6px", marginTop: "0.5rem" }} />
+              </div>
+            </div>
+          ))}
         </div>
       ) : filteredCourses.length > 0 ? (
         <div className="courses-grid">
