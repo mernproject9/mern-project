@@ -14,7 +14,7 @@ export default function LoginForm({ onLoginSuccess, onClose }) {
   const [successMessage, setSuccessMessage] = useState("");
   const [tokenResult, setTokenResult] = useState(null);
 
-  const API_URL = "http://localhost:5000/api/auth";
+  const API_URL = window.location.port === "5173" ? "/api/auth" : "http://localhost:5000/api/auth";
 
   // Helper to parse JWT payload for client display
   const decodeJwtPayload = (token) => {

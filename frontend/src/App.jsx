@@ -9,6 +9,7 @@ import UpcomingDeadlines from "./components/UpcomingDeadlines";
 import EnrollCourseModal from "./components/EnrollCourseModal";
 import CertificateModal from "./components/CertificateModal";
 import StudentSwitcherModal from "./components/StudentSwitcherModal";
+import LoginForm from "./components/LoginForm";
 
 // Initial fallback mock data
 const initialMockData = {
@@ -121,9 +122,18 @@ const initialMockData = {
 function App() {
   const [theme, setTheme] = useState("dark");
   
-  // Authentication State Guard
-  const [isAuthenticated, setIsAuthenticated] = useState(true); // default authenticated for ease of view, toggleable
-  const [authEmail, setAuthEmail] = useState("alex.morgan@university.edu");
+  // Authentication State Guard & LocalStorage Token Management
+  const [authToken, setAuthToken] = useState(() => localStorage.getItem("urban_edu_token") || null);
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem("urban_edu_user");
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
   const [currentStudent, setCurrentStudent] = useState(initialMockData.student);
   const [courses, setCourses] = useState(initialMockData.courses);
@@ -345,80 +355,45 @@ function App() {
       });
   }, [courses, statusTab, categoryFilter, sortBy, searchQuery]);
 
-  // Authentication Login Handler
-  const handleLoginSubmit = (e) => {
-    e.preventDefault();
-    if (!authEmail) return;
+  // Authentication Handlers
+  const handleLoginSuccess = ({ token, user }) => {
+    if (token) {
+      localStorage.setItem("urban_edu_token", token);
+      setAuthToken(token);
+    }
+    if (user) {
+      localStorage.setItem("urban_edu_user", JSON.stringify(user));
+      setCurrentUser(user);
+      setCurrentStudent(prev => ({
+        ...prev,
+        id: user.id || prev.id,
+        name: user.name || prev.name,
+        email: user.email || prev.email,
+        department: user.department || prev.department,
+        avatar: user.avatar || prev.avatar,
+        role: user.role
+      }));
+    }
     setIsAuthenticated(true);
-    setCurrentStudent(prev => ({ ...prev, email: authEmail, name: authEmail.split("@")[0].toUpperCase() }));
+    setIsLoginModalOpen(false);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("urban_edu_token");
+    localStorage.removeItem("urban_edu_user");
+    setAuthToken(null);
+    setCurrentUser(null);
+    setIsAuthenticated(false);
   };
 
   // Render Authentication Guard screen if student is not authenticated
   if (!isAuthenticated) {
     return (
       <div className="app-wrapper" style={{ justifyContent: "center", alignItems: "center", minHeight: "100vh", padding: "2rem" }}>
-        <div style={{
-          maxWidth: "420px",
-          width: "100%",
-          background: "var(--bg-secondary)",
-          border: "1px solid var(--border-color)",
-          borderRadius: "var(--radius-lg)",
-          padding: "2rem",
-          boxShadow: "var(--shadow-lg)",
-          textAlign: "center"
-        }}>
-          <div className="brand-icon-wrapper" style={{ margin: "0 auto 1rem", width: "50px", height: "50px" }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
-              <path d="M6 12v5c3 3 9 3 12 0v-5"/>
-            </svg>
-          </div>
-
-          <h2 style={{ fontSize: "1.4rem", color: "var(--text-primary)", marginBottom: "0.5rem" }}>
-            Student Authentication Required
-          </h2>
-          <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "1.5rem" }}>
-            Please log in with your student portal credentials to access your enrolled courses and progress dashboard.
-          </p>
-
-          <form onSubmit={handleLoginSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem", textAlign: "left" }}>
-            <div>
-              <label style={{ fontSize: "0.8rem", color: "var(--text-secondary)", display: "block", marginBottom: "0.3rem" }}>
-                Student Email Address
-              </label>
-              <input
-                type="email"
-                className="search-input"
-                style={{ paddingLeft: "1rem" }}
-                value={authEmail}
-                onChange={(e) => setAuthEmail(e.target.value)}
-                placeholder="student@university.edu"
-                required
-              />
-            </div>
-
-            <div>
-              <label style={{ fontSize: "0.8rem", color: "var(--text-secondary)", display: "block", marginBottom: "0.3rem" }}>
-                Passcode / Token
-              </label>
-              <input
-                type="password"
-                className="search-input"
-                style={{ paddingLeft: "1rem" }}
-                defaultValue="••••••••"
-                required
-              />
-            </div>
-
-            <button type="submit" className="btn-primary" style={{ justifyContent: "center", marginTop: "0.5rem" }}>
-              Authenticate & View Dashboard
-            </button>
-          </form>
-
-          <div style={{ marginTop: "1.25rem", fontSize: "0.78rem", color: "var(--text-muted)" }}>
-            Demo Student ID: <strong style={{ color: "var(--accent-primary)" }}>STU-2026-8942</strong>
-          </div>
-        </div>
+        <LoginForm
+          onLoginSuccess={handleLoginSuccess}
+          onClose={null}
+        />
       </div>
     );
   }
@@ -492,8 +467,11 @@ function App() {
           </div>
 
           <div className="header-cta-group">
-            <button className="btn-secondary" onClick={() => setIsAuthenticated(false)}>
+            <button className="btn-secondary" onClick={handleLogout}>
               🔒 Sign Out
+            </button>
+            <button className="btn-secondary" onClick={() => setIsLoginModalOpen(true)}>
+              🔑 JWT Auth Modal
             </button>
             <button className="btn-primary" onClick={() => setIsEnrollModalOpen(true)}>
               + Enroll New Course
@@ -715,6 +693,13 @@ function App() {
           currentStudent={currentStudent}
           onSelectStudent={(st) => setCurrentStudent(st)}
           onClose={() => setIsStudentModalOpen(false)}
+        />
+      )}
+
+      {isLoginModalOpen && (
+        <LoginForm
+          onLoginSuccess={handleLoginSuccess}
+          onClose={() => setIsLoginModalOpen(false)}
         />
       )}
     </div>
