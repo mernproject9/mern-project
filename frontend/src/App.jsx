@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import StatCard from "./components/StatCard";
 import OverallProgressGauge from "./components/OverallProgressGauge";
@@ -10,6 +11,7 @@ import EnrollCourseModal from "./components/EnrollCourseModal";
 import CertificateModal from "./components/CertificateModal";
 import StudentSwitcherModal from "./components/StudentSwitcherModal";
 import LoginForm from "./components/LoginForm";
+import CourseDetailView from "./components/CourseDetailView";
 
 // Initial fallback mock data
 const initialMockData = {
@@ -410,7 +412,11 @@ function App() {
         onOpenEnrollModal={() => setIsEnrollModalOpen(true)}
       />
 
-      <main className="dashboard-container">
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <main className="dashboard-container">
         {/* API Connection Warning Banner if offline */}
         {apiError && (
           <div style={{
@@ -659,6 +665,10 @@ function App() {
           </div>
         </div>
       </main>
+          }
+        />
+        <Route path="/course/:id" element={<CourseDetailView />} />
+      </Routes>
 
       {/* Modals */}
       {selectedCourseModal && (

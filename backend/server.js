@@ -8,6 +8,7 @@ dotenv.config();
 const authRoutes = require("./routes/auth");
 const dashboardRoutes = require("./routes/dashboard");
 const studentsRoutes = require("./routes/students");
+const coursesRoutes = require("./routes/courses");
 
 const app = express();
 
@@ -30,6 +31,7 @@ app.get("/api/health", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/students", studentsRoutes);
+app.use("/api/courses", coursesRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {

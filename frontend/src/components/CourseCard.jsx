@@ -1,10 +1,22 @@
+import { useNavigate } from "react-router-dom";
+
 export default function CourseCard({ course, onSelectCourse, onOpenCertificate }) {
+  const navigate = useNavigate();
+
   const isCompleted = course.progressPercentage >= 100 || course.status === "completed";
   const isNotStarted = course.progressPercentage === 0 || course.status === "not-started";
   const isInProgress = !isCompleted && !isNotStarted;
 
+  const handleOpenDetail = (e) => {
+    e.stopPropagation();
+    // Save scroll position for back navigation preservation
+    sessionStorage.setItem("catalog_scroll_pos", window.scrollY.toString());
+    const targetId = course.id || course._id || course.code;
+    navigate(`/course/${targetId}`);
+  };
+
   return (
-    <div className="course-card">
+    <div className="course-card" onClick={handleOpenDetail} style={{ cursor: "pointer" }}>
       <div
         className="course-banner"
         style={{ background: course.thumbnailGradient || "linear-gradient(135deg, #6366f1 0%, #a855f7 100%)" }}
@@ -41,7 +53,7 @@ export default function CourseCard({ course, onSelectCourse, onOpenCertificate }
 
       <div className="course-body">
         <div className="course-code">{course.code}</div>
-        <h3 className="course-title">{course.title}</h3>
+        <h3 className="course-title" style={{ color: "var(--text-primary)" }}>{course.title}</h3>
         <div className="course-instructor">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
@@ -94,21 +106,33 @@ export default function CourseCard({ course, onSelectCourse, onOpenCertificate }
           </div>
         )}
 
-        <div className="course-card-footer">
+        <div className="course-card-footer" style={{ gap: "0.5rem" }}>
           <button
             className="btn-card-action primary"
-            onClick={() => onSelectCourse(course)}
+            onClick={handleOpenDetail}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polygon points="5 3 19 12 5 21 5 3"></polygon>
-            </svg>
-            {isCompleted ? "Review Modules" : isNotStarted ? "Start Course" : "Continue"}
+            📖 Full Course Details
+          </button>
+
+          <button
+            className="btn-card-action"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectCourse(course);
+            }}
+            title="Lessons & Syllabus Checklist"
+            style={{ width: "auto", padding: "0.55rem 0.75rem" }}
+          >
+            📋
           </button>
 
           {isCompleted && (
             <button
               className="btn-card-action"
-              onClick={() => onOpenCertificate(course)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenCertificate(course);
+              }}
               title="View Certificate"
               style={{ width: "auto", padding: "0.55rem 0.75rem" }}
             >
