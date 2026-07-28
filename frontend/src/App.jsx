@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import StatCard from "./components/StatCard";
 import OverallProgressGauge from "./components/OverallProgressGauge";
@@ -122,6 +122,7 @@ const initialMockData = {
 };
 
 function App() {
+  const location = useLocation();
   const [theme, setTheme] = useState("dark");
   
   // Authentication State Guard & LocalStorage Token Management
@@ -156,6 +157,25 @@ function App() {
   const [selectedCertificateCourse, setSelectedCertificateCourse] = useState(null);
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
+
+  // Scroll Restoration Effect between Catalog and Course Detail page
+  useEffect(() => {
+    if (location.pathname === "/") {
+      const savedScrollPos = sessionStorage.getItem("catalog_scroll_pos");
+      if (savedScrollPos !== null) {
+        const targetScroll = parseInt(savedScrollPos, 10);
+        const timer = setTimeout(() => {
+          window.scrollTo({
+            top: targetScroll,
+            behavior: "instant"
+          });
+        }, 50);
+        return () => clearTimeout(timer);
+      }
+    } else if (location.pathname.startsWith("/course/")) {
+      window.scrollTo(0, 0);
+    }
+  }, [location.pathname]);
 
   // Apply dark/light theme attribute to root
   useEffect(() => {

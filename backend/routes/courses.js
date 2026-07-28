@@ -163,13 +163,13 @@ const detailedCoursesCatalog = [
 // GET /api/courses - List all courses
 router.get("/", async (req, res) => {
   try {
-    let courses = await Course.find();
+    let courses = await Course.find().catch(() => null);
     if (!courses || courses.length === 0) {
       courses = detailedCoursesCatalog;
     }
     res.json(courses);
   } catch (err) {
-    res.status(500).json({ message: err.message, fallback: detailedCoursesCatalog });
+    res.json(detailedCoursesCatalog);
   }
 });
 
@@ -179,25 +179,28 @@ router.get("/:id", async (req, res) => {
     const { id } = req.params;
     let course = null;
 
-    // Try finding by Mongoose ID
-    if (id.match(/^[0-9a-fA-F]{24}$/)) {
-      course = await Course.findById(id);
-    }
-
-    // Try finding by custom string ID or course Code (e.g. CS-401 or c_mern)
-    if (!course) {
-      course = await Course.findOne({
-        $or: [
-          { code: id },
-          { _id: id }
-        ]
-      });
+    // Try finding by Mongoose ID or Code if DB is connected
+    try {
+      if (id.match(/^[0-9a-fA-F]{24}$/)) {
+        course = await Course.findById(id);
+      }
+      if (!course) {
+        course = await Course.findOne({
+          $or: [
+            { code: id },
+            { _id: id }
+          ]
+        });
+      }
+    } catch (dbErr) {
+      // Mongoose connection offline - fallback to local catalog
+      course = null;
     }
 
     // Fallback to detailed local seed database catalog if not found in MongoDB
     if (!course) {
       course = detailedCoursesCatalog.find(
-        (c) => c._id === id || c.code === id || c.code.toLowerCase() === id.toLowerCase()
+        (c) => c._id === id || c.id === id || c.code === id || c.code.toLowerCase() === id.toLowerCase()
       );
     }
 
@@ -206,9 +209,9 @@ router.get("/:id", async (req, res) => {
       course = detailedCoursesCatalog[0];
     }
 
-    const courseObj = typeof course.toObject === 'function' ? course.toObject() : course;
+    const courseObj = (course && typeof course.toObject === 'function') ? course.toObject() : (course || detailedCoursesCatalog[0]);
     const matchingDetail = detailedCoursesCatalog.find(
-      (c) => c.code === courseObj.code || c._id === courseObj._id || c._id === id
+      (c) => c.code === courseObj.code || c._id === courseObj._id || c._id === id || c.id === id
     ) || detailedCoursesCatalog[0];
 
     // Guarantee full description, instructor info, and syllabus details are present
@@ -226,9 +229,10 @@ router.get("/:id", async (req, res) => {
     res.json(enrichedCourse);
   } catch (err) {
     console.error("Fetch course detail error:", err.message);
-    const fallbackCourse = detailedCoursesCatalog.find((c) => c._id === req.params.id) || detailedCoursesCatalog[0];
+    const fallbackCourse = detailedCoursesCatalog.find((c) => c._id === req.params.id || c.id === req.params.id) || detailedCoursesCatalog[0];
     res.json(fallbackCourse);
   }
 });
 
 module.exports = router;
+
