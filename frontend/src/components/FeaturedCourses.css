@@ -1,0 +1,38 @@
+.featured {
+  margin: 40px 0;
+}
+
+.featured h2 {
+  text-align: center;
+  color: white;
+  margin-bottom: 20px;
+}
+
+.featured-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.featured-card {
+  background: #1e293b;
+  border-radius: 15px;
+  padding: 20px;
+  text-align: center;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+  transition: all 0.3s ease;
+}
+
+.featured-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 12px 25px rgba(124,58,237,0.4);
+}
+
+.featured-card h3 {
+  color: #ffffff;
+  margin-bottom: 10px;
+}
+
+.featured-card p {
+  color: #cbd5e1;
+}

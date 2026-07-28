@@ -1,0 +1,29 @@
+.footer {
+  margin-top: 50px;
+  padding: 30px;
+  background: #111827;
+  text-align: center;
+  border-radius: 15px 15px 0 0;
+}
+
+.footer h2 {
+  color: white;
+}
+
+.footer p {
+  color: #cbd5e1;
+}
+
+.footer-links {
+  margin: 20px 0;
+}
+
+.footer-links a {
+  color: white;
+  margin: 0 15px;
+  text-decoration: none;
+}
+
+.footer-links a:hover {
+  color: #7c3aed;
+}

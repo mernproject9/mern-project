@@ -4,10 +4,13 @@ var path = require("path");
 var cookieParser = require("cookie-parser");
 var logger = require("morgan");
 
+const courseRouter = require("./routes/courses");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const connectDB = require("./config/db");
 const studentsRouter = require("./routes/students");
+
+const authRouter = require("./routes/auth");
 
 dotenv.config();
 
@@ -25,7 +28,10 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 
 
+app.use("/api/auth", authRouter);
+app.use("/auth", authRouter);
 app.use("/students", studentsRouter);
+app.use("/courses", courseRouter);
 
 app.use(function (req, res, next) {
   next(createError(404));

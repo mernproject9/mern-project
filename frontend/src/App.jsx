@@ -1,55 +1,29 @@
-import { useState, useEffect } from "react";
-import StudentForm from "./components/StudentForm";
-import StudentCard from "./components/StudentCard";
-import CourseCatalog from "./components/CourseCatalog";
-import "./App.css";
- 
+import React from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "./context/AuthContext";
+
+import Home from "./pages/Home";
+import Courses from "./pages/Courses";
+import CourseDetails from "./pages/CourseDetails";
+import Dashboard from "./pages/Dashboard";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+
 function App() {
-  const [student, setStudent] = useState(null);
- 
-  useEffect(() => {
-    if (student) {
-      const roleStr = student.role ? ` (${student.role})` : "";
-      document.title = `Welcome, ${student.name}${roleStr}`;
-    } else {
-      document.title = "Student Profile Manager";
-    }
-  }, [student]);
- 
   return (
-    <div className="container">
-      <h1>User Account & Role Manager</h1>
-{student && (
-  <nav>
-    <h3>Navigation</h3>
-
-    {student.role === "Admin" && (
-      <p>🏠 Dashboard | 👥 Users | ⚙️ Settings</p>
-    )}
-
-    {student.role === "Instructor" && (
-      <p>🏠 Dashboard | 📚 Courses | 📝 Students</p>
-    )}
-
-    {student.role === "Student" && (
-      <p>🏠 Dashboard | 📖 My Courses | 🎓 Profile</p>
-    )}
-  </nav>
-)} 
-      <StudentForm setStudent={setStudent} />
- 
-      <hr />
-{student ? (
-  <>
-    <StudentCard student={student} />
-    <hr />
-    <CourseCatalog />
-  </>
-) : (
-  <h3>No Profile Registered Yet</h3>
-)}
-    </div>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/courses" element={<Courses />} />
+          <Route path="/course/:id" element={<CourseDetails />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
- 
+
 export default App;
