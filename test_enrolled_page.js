@@ -13,7 +13,7 @@ if (!fs.existsSync(viewPath)) {
 const viewContent = fs.readFileSync(viewPath, 'utf8');
 
 // Check 1: Display enrolled courses list
-if (viewContent.includes("courses.map") && viewContent.includes("filteredCourses")) {
+if (viewContent.includes("filteredCourses.map") || viewContent.includes("activeCourses.map")) {
   console.log("✅ 1. Lists user's enrolled courses with status pills & progress bars.");
 } else {
   console.error("❌ 1. List rendering missing in EnrolledCoursesView.jsx");
@@ -29,10 +29,17 @@ if (viewContent.includes("enrolled-course-title-link") && viewContent.includes("
 }
 
 // Check 3: Friendly empty state when no courses are enrolled
-if (viewContent.includes("No Enrolled Courses Found") && viewContent.includes("You are not enrolled in any courses yet")) {
-  console.log("✅ 3. Friendly empty state implemented when 0 courses are enrolled.");
+const emptyStatePath = path.join(__dirname, 'frontend', 'src', 'components', 'EmptyEnrolledState.jsx');
+if (fs.existsSync(emptyStatePath)) {
+  const emptyContent = fs.readFileSync(emptyStatePath, 'utf8');
+  if (emptyContent.includes("Your Learning Journey Begins Here") && emptyContent.includes("Explore Course Catalog & Enroll")) {
+    console.log("✅ 3. Friendly EmptyEnrolledState component with illustration badge, value cards, & CTA button implemented.");
+  } else {
+    console.error("❌ 3. EmptyEnrolledState content check failed!");
+    process.exit(1);
+  }
 } else {
-  console.error("❌ 3. Friendly empty state missing!");
+  console.error("❌ 3. EmptyEnrolledState.jsx missing!");
   process.exit(1);
 }
 

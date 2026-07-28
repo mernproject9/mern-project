@@ -13,6 +13,7 @@ import StudentSwitcherModal from "./components/StudentSwitcherModal";
 import LoginForm from "./components/LoginForm";
 import CourseDetailView from "./components/CourseDetailView";
 import EnrolledCoursesView from "./components/EnrolledCoursesView";
+import EmptyEnrolledState from "./components/EmptyEnrolledState";
 
 // Initial fallback mock data
 const initialMockData = {
@@ -654,24 +655,15 @@ function App() {
                   ))}
                 </div>
               ) : (
-                <div style={{
-                  textAlign: "center",
-                  padding: "3rem 1.5rem",
-                  background: "var(--bg-card)",
-                  borderRadius: "var(--radius-md)",
-                  border: "1px dashed var(--border-color)"
-                }}>
-                  <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>📖</div>
-                  <h3 style={{ fontSize: "1.1rem", color: "var(--text-primary)", marginBottom: "0.25rem" }}>
-                    No Enrolled Courses Found
-                  </h3>
-                  <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
-                    {searchQuery ? `No matches for "${searchQuery}"` : `No courses in the "${statusTab}" filter.`}
-                  </p>
-                  <button className="btn-primary" onClick={() => setIsEnrollModalOpen(true)}>
-                    Explore Catalog & Enroll
-                  </button>
-                </div>
+                <EmptyEnrolledState
+                  onOpenEnrollModal={() => setIsEnrollModalOpen(true)}
+                  onClearFilters={() => {
+                    setStatusTab("all");
+                    setCategoryFilter("all");
+                    setSearchQuery("");
+                  }}
+                  isFiltered={courses.length > 0 && filteredCourses.length === 0}
+                />
               )}
             </div>
           </div>

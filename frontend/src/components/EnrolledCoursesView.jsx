@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import EmptyEnrolledState from "./EmptyEnrolledState";
 
 export default function EnrolledCoursesView({
   courses = [],
@@ -414,63 +415,16 @@ export default function EnrolledCoursesView({
             })}
           </div>
         ) : (
-          /* Friendly Empty State */
-          <div
-            style={{
-              textAlign: "center",
-              padding: "4rem 2rem",
-              background: "var(--bg-secondary)",
-              borderRadius: "var(--radius-lg)",
-              border: "1px dashed var(--border-color)",
-              margin: "1.5rem 0"
+          /* Friendly Empty State Component */
+          <EmptyEnrolledState
+            onOpenEnrollModal={onOpenEnrollModal}
+            onClearFilters={() => {
+              setStatusTab("all");
+              setCategoryFilter("all");
+              setSearchQuery("");
             }}
-          >
-            <div
-              style={{
-                width: "80px",
-                height: "80px",
-                borderRadius: "50%",
-                background: "rgba(99, 102, 241, 0.12)",
-                color: "var(--accent-primary)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "2.5rem",
-                margin: "0 auto 1.5rem"
-              }}
-            >
-              🎓
-            </div>
-
-            <h3 style={{ fontSize: "1.35rem", color: "var(--text-primary)", marginBottom: "0.5rem" }}>
-              {courses.length === 0 ? "No Enrolled Courses Found" : "No Matching Courses Found"}
-            </h3>
-
-            <p style={{ fontSize: "0.95rem", color: "var(--text-secondary)", maxWidth: "480px", margin: "0 auto 1.75rem", lineHeight: 1.6 }}>
-              {courses.length === 0
-                ? "You are not enrolled in any courses yet. Explore our extensive course catalog to kickstart your learning journey!"
-                : `No enrolled courses matched your search or status filter "${statusTab}". Try clearing filters or searching another keyword.`}
-            </p>
-
-            <div style={{ display: "flex", gap: "1rem", justifyContent: "center" }}>
-              {courses.length > 0 && (
-                <button
-                  className="btn-secondary"
-                  onClick={() => {
-                    setStatusTab("all");
-                    setCategoryFilter("all");
-                    setSearchQuery("");
-                  }}
-                >
-                  Clear Filters
-                </button>
-              )}
-
-              <button className="btn-primary" onClick={onOpenEnrollModal}>
-                + Explore Course Catalog & Enroll
-              </button>
-            </div>
-          </div>
+            isFiltered={activeCourses.length > 0 && filteredCourses.length === 0}
+          />
         )}
       </div>
     </div>
