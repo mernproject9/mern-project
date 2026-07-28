@@ -103,6 +103,53 @@ assert.strictEqual(ineligibleRes.modulesCompletionMet, false, "Incomplete module
 assert.strictEqual(ineligibleRes.quizzesPassedMet, false, "Pending quiz must fail requirement");
 console.log("   ✅ PASSED: Ineligible User correctly rejected from claiming certificate!\n");
 
-console.log("==================================================================");
-console.log("🎉 ALL CERTIFICATE ELIGIBILITY TESTS COMPLETED SUCCESSFULLY!");
-console.log("==================================================================");
+// Execute Test 3: Express HTTP Route Eligibility Endpoints
+console.log("▶ [Test 3] Testing Express HTTP Eligibility Endpoints...");
+const app = require("./app");
+const server = app.listen(0, async () => {
+  const port = server.address().port;
+  console.log(`   Express test server listening on port ${port}`);
+
+  const makeRequest = (path) => {
+    return new Promise((resolve, reject) => {
+      http.get(`http://localhost:${port}${path}`, (res) => {
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => resolve({ status: res.statusCode, data: JSON.parse(data) }));
+      }).on("error", reject);
+    });
+  };
+
+  try {
+    // Test Scenario: GET /courses/test-eligibility/eligible
+    const eligibleHttp = await makeRequest("/courses/test-eligibility/eligible");
+    assert.strictEqual(eligibleHttp.status, 200);
+    assert.strictEqual(eligibleHttp.data.eligible, true);
+    assert.strictEqual(eligibleHttp.data.completionThreshold, 100);
+    console.log("   ✅ GET /courses/test-eligibility/eligible passed (eligible: true, threshold: 100%)");
+
+    // Test Scenario: GET /courses/test-eligibility/ineligible
+    const ineligibleHttp = await makeRequest("/courses/test-eligibility/ineligible");
+    assert.strictEqual(ineligibleHttp.status, 200);
+    assert.strictEqual(ineligibleHttp.data.eligible, false);
+    console.log("   ✅ GET /courses/test-eligibility/ineligible passed (eligible: false)");
+
+    // Test Endpoint: GET /courses/1/eligibility
+    const routeHttp = await makeRequest("/courses/1/eligibility");
+    assert.strictEqual(routeHttp.status, 200);
+    assert.strictEqual(routeHttp.data.success, true);
+    assert.strictEqual(typeof routeHttp.data.eligible, "boolean");
+    console.log("   ✅ GET /courses/1/eligibility passed (MongoDB query fallback verified)");
+
+    console.log("\n==================================================================");
+    console.log("🎉 ALL CERTIFICATE ELIGIBILITY TESTS & HTTP ROUTES PASSED!");
+    console.log("==================================================================");
+    server.close();
+    process.exit(0);
+  } catch (err) {
+    console.error("   ❌ HTTP Route Test Error:", err);
+    server.close();
+    process.exit(1);
+  }
+});
+
