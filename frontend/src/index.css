@@ -608,6 +608,15 @@ button, input, select, textarea {
   line-height: 1.3;
 }
 
+.enrolled-course-title-link {
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.enrolled-course-title-link:hover {
+  color: var(--accent-primary) !important;
+  text-decoration: underline !important;
+}
+
 .course-instructor {
   font-size: 0.82rem;
   color: var(--text-secondary);

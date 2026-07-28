@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 
 export default function Navbar({
   currentStudent,
@@ -9,18 +10,58 @@ export default function Navbar({
   onOpenStudentModal,
   onOpenEnrollModal
 }) {
+  const location = useLocation();
   const [showNotifications, setShowNotifications] = useState(false);
 
   return (
     <nav className="navbar">
-      <div className="nav-brand">
-        <div className="brand-icon-wrapper">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
-            <path d="M6 12v5c3 3 9 3 12 0v-5"/>
-          </svg>
+      <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
+        <Link to="/" className="nav-brand" style={{ textDecoration: "none" }}>
+          <div className="brand-icon-wrapper">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+              <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+            </svg>
+          </div>
+          <span className="brand-title">EduPulse</span>
+        </Link>
+
+        {/* Top Header Navigation Tabs */}
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+          <Link
+            to="/"
+            style={{
+              padding: "0.4rem 0.85rem",
+              borderRadius: "var(--radius-sm)",
+              fontSize: "0.85rem",
+              fontWeight: 600,
+              textDecoration: "none",
+              background: location.pathname === "/" ? "var(--bg-card-hover)" : "transparent",
+              color: location.pathname === "/" ? "var(--accent-primary)" : "var(--text-secondary)",
+              border: location.pathname === "/" ? "1px solid var(--border-glow)" : "1px solid transparent",
+              transition: "all 0.2s ease"
+            }}
+          >
+            🏠 Dashboard
+          </Link>
+
+          <Link
+            to="/enrolled"
+            style={{
+              padding: "0.4rem 0.85rem",
+              borderRadius: "var(--radius-sm)",
+              fontSize: "0.85rem",
+              fontWeight: 600,
+              textDecoration: "none",
+              background: location.pathname === "/enrolled" || location.pathname === "/my-courses" ? "var(--bg-card-hover)" : "transparent",
+              color: location.pathname === "/enrolled" || location.pathname === "/my-courses" ? "var(--accent-primary)" : "var(--text-secondary)",
+              border: location.pathname === "/enrolled" || location.pathname === "/my-courses" ? "1px solid var(--border-glow)" : "1px solid transparent",
+              transition: "all 0.2s ease"
+            }}
+          >
+            📚 My Courses
+          </Link>
         </div>
-        <span className="brand-title">EduPulse</span>
       </div>
 
       <div className="nav-search">

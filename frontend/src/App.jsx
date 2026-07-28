@@ -12,6 +12,7 @@ import CertificateModal from "./components/CertificateModal";
 import StudentSwitcherModal from "./components/StudentSwitcherModal";
 import LoginForm from "./components/LoginForm";
 import CourseDetailView from "./components/CourseDetailView";
+import EnrolledCoursesView from "./components/EnrolledCoursesView";
 
 // Initial fallback mock data
 const initialMockData = {
@@ -688,6 +689,30 @@ function App() {
           }
         />
         <Route path="/course/:id" element={<CourseDetailView />} />
+        <Route
+          path="/enrolled"
+          element={
+            <EnrolledCoursesView
+              courses={courses}
+              currentStudent={currentStudent}
+              onOpenEnrollModal={() => setIsEnrollModalOpen(true)}
+              onSelectCourse={(c) => setSelectedCourseModal(c)}
+              onOpenCertificate={(c) => setSelectedCertificateCourse(c)}
+            />
+          }
+        />
+        <Route
+          path="/my-courses"
+          element={
+            <EnrolledCoursesView
+              courses={courses}
+              currentStudent={currentStudent}
+              onOpenEnrollModal={() => setIsEnrollModalOpen(true)}
+              onSelectCourse={(c) => setSelectedCourseModal(c)}
+              onOpenCertificate={(c) => setSelectedCertificateCourse(c)}
+            />
+          }
+        />
       </Routes>
 
       {/* Modals */}
