@@ -236,6 +236,29 @@ function createCertificatePDF(data) {
 }
 
 /**
+ * Save PDF to file system disk cache for instant retrieval
+ */
+function saveCertificateToCache(certData, targetFilePath) {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = createCertificatePDF(certData);
+      const writeStream = fs.createWriteStream(targetFilePath);
+      doc.pipe(writeStream);
+      doc.end();
+
+      writeStream.on("finish", () => {
+        resolve(targetFilePath);
+      });
+      writeStream.on("error", (err) => {
+        reject(err);
+      });
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+/**
  * Main service method to generate or retrieve a certificate
  */
 async function getOrGenerateCertificate(studentId, courseId, customData = {}) {
@@ -263,7 +286,7 @@ async function getOrGenerateCertificate(studentId, courseId, customData = {}) {
   
   const mongoose = require("mongoose");
   
-  // Existing persistent certificate check
+  // Existing persistent certificate check from MongoDB Database
   let certRecord = null;
   if (mongoose.connection.readyState === 1) {
     try {
@@ -281,7 +304,8 @@ async function getOrGenerateCertificate(studentId, courseId, customData = {}) {
     year: "numeric"
   });
 
-  const filename = `Certificate_${studentId}_${courseId}.pdf`;
+  // Disk Storage File Path
+  const filename = `cert_${certificateId}.pdf`;
   const pdfFilePath = path.join(CERT_DIR, filename);
 
   const certData = {
@@ -296,7 +320,17 @@ async function getOrGenerateCertificate(studentId, courseId, customData = {}) {
     issueDate
   };
 
-  // Save to DB if not exists
+  // Check if PDF file exists in file system cache
+  const isCached = fs.existsSync(pdfFilePath);
+  if (!isCached) {
+    try {
+      await saveCertificateToCache(certData, pdfFilePath);
+    } catch (e) {
+      console.warn("Disk cache save note:", e.message);
+    }
+  }
+
+  // Save metadata record to DB if not exists
   if (!certRecord && mongoose.connection.readyState === 1) {
     try {
       certRecord = await Certificate.create({
@@ -317,14 +351,77 @@ async function getOrGenerateCertificate(studentId, courseId, customData = {}) {
 
   return {
     success: true,
+    isCached: fs.existsSync(pdfFilePath),
     certData,
     pdfFilePath,
     createPDFDoc: () => createCertificatePDF(certData)
   };
 }
 
+/**
+ * Retrieve a stored certificate by unique Certificate ID
+ */
+async function getStoredCertificateById(certificateId) {
+  const mongoose = require("mongoose");
+  let certRecord = null;
+
+  if (mongoose.connection.readyState === 1) {
+    try {
+      certRecord = await Certificate.findOne({ certificateId });
+    } catch (e) {
+      certRecord = null;
+    }
+  }
+
+  const filename = `cert_${certificateId}.pdf`;
+  const pdfFilePath = path.join(CERT_DIR, filename);
+  const existsOnDisk = fs.existsSync(pdfFilePath);
+
+  if (!certRecord && !existsOnDisk) {
+    return {
+      success: false,
+      status: 404,
+      message: `Stored certificate with ID '${certificateId}' not found.`
+    };
+  }
+
+  return {
+    success: true,
+    isCached: existsOnDisk,
+    pdfFilePath,
+    certData: certRecord ? certRecord.toObject() : { certificateId, pdfPath: pdfFilePath }
+  };
+}
+
+/**
+ * Get storage & disk caching status metrics
+ */
+async function getStorageStatus() {
+  const files = fs.existsSync(CERT_DIR) ? fs.readdirSync(CERT_DIR).filter(f => f.endsWith(".pdf")) : [];
+  let totalBytes = 0;
+
+  files.forEach(f => {
+    try {
+      const stats = fs.statSync(path.join(CERT_DIR, f));
+      totalBytes += stats.size;
+    } catch (e) {}
+  });
+
+  return {
+    success: true,
+    storageMethod: "Hybrid Storage (File System Disk Cache + MongoDB Database Registry)",
+    cachedFileCount: files.length,
+    totalSizeBytes: totalBytes,
+    totalSizeMB: (totalBytes / (1024 * 1024)).toFixed(2),
+    cacheDirectory: CERT_DIR,
+    filesList: files
+  };
+}
+
 module.exports = {
   checkEligibility,
   getOrGenerateCertificate,
-  createCertificatePDF
+  createCertificatePDF,
+  getStoredCertificateById,
+  getStorageStatus
 };

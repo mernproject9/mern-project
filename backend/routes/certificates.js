@@ -99,6 +99,39 @@ router.get("/:courseId", async (req, res) => {
   }
 });
 
+// GET /api/certificates/storage/status - Get storage method decision and disk cache metrics
+router.get("/storage/status", async (req, res) => {
+  try {
+    const status = await certificateService.getStorageStatus();
+    res.json(status);
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// GET /api/certificates/retrieved/:certificateId - Retrieve stored certificate PDF for later view/download
+router.get("/retrieved/:certificateId", async (req, res) => {
+  try {
+    const { certificateId } = req.params;
+    const result = await certificateService.getStoredCertificateById(certificateId);
+
+    if (!result.success) {
+      return res.status(result.status || 404).json(result);
+    }
+
+    const fs = require("fs");
+    if (result.isCached && fs.existsSync(result.pdfFilePath)) {
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `inline; filename="Certificate_${certificateId}.pdf"`);
+      return fs.createReadStream(result.pdfFilePath).pipe(res);
+    }
+
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // GET /api/certificates/verify/:certificateId - Verify Certificate Authenticity
 router.get("/verify/:certificateId", async (req, res) => {
   try {
