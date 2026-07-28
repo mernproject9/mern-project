@@ -31,29 +31,63 @@ const courseCatalogLookup = {
 /**
  * Check if a student is eligible for a certificate in a given course
  */
-async function checkEligibility(studentId, courseId, inputCourseObj) {
-  // If explicitly passed an in-memory course object with completed status or 100% progress
+async function checkEligibility(studentId, courseId, inputCourseObj = {}) {
+  const mongoose = require("mongoose");
+  const Enrollment = require("../models/Enrollment");
+
+  // 1. Check MongoDB database enrollment record if database is connected
+  if (mongoose.connection.readyState === 1) {
+    try {
+      const enrollment = await Enrollment.findOne({
+        $or: [
+          { student: studentId, course: courseId },
+          { student: studentId }
+        ]
+      });
+
+      if (enrollment) {
+        const isFinished = enrollment.progressPercentage >= 100 || enrollment.status === "completed";
+        if (!isFinished) {
+          return {
+            eligible: false,
+            reason: `Student has completed ${enrollment.progressPercentage || 0}% of the course. 100% completion is required for certificate eligibility.`
+          };
+        }
+        return { eligible: true };
+      }
+    } catch (e) {
+      // Fallback to local catalog eligibility check
+    }
+  }
+
+  // 2. Check input course object or query override
   if (inputCourseObj) {
-    const isCompleted = inputCourseObj.progressPercentage >= 100 || inputCourseObj.status === "completed";
-    if (isCompleted) {
+    if (inputCourseObj.status === "not-started" || inputCourseObj.progressPercentage === 0) {
+      return {
+        eligible: false,
+        reason: "Course has not been started yet. Completion of all lessons is required."
+      };
+    }
+    if (inputCourseObj.isCompleted || inputCourseObj.status === "completed" || inputCourseObj.progressPercentage >= 100) {
       return { eligible: true };
     }
   }
 
-  // Known fallback courses with completed status (e.g. c_ds is 100% completed by default)
+  // 3. Fallback catalog defaults
   if (courseId === "c_ds" || courseId === "DS-502") {
-    return { eligible: true };
+    return { eligible: true }; // 100% completed course
   }
 
-  // Default demo check: allow eligible status if course progress is 100% or explicitly passed as completed
-  if (courseId === "c_mern" || courseId === "CS-401") {
-    // Check if passed with completion query or default demo
-    return { eligible: true };
+  if (courseId === "c_cyber" || courseId === "SEC-301") {
+    if (!inputCourseObj.allowForce) {
+      return {
+        eligible: false,
+        reason: "Course 'Cybersecurity & Network Defense' progress is at 0%. Complete all lessons to unlock certificate."
+      };
+    }
   }
 
-  return {
-    eligible: true // Allow certificate generation for testing & completion flows
-  };
+  return { eligible: true };
 }
 
 /**

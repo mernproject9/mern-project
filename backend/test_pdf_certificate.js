@@ -74,6 +74,17 @@ async function testPDFCertificateService() {
       throw new Error("Certificate verification failed!");
     }
 
+    // Test 2D: Ineligible Certificate Check
+    console.log(`\n5. Testing ineligible user certificate request GET ${baseUrl}/generate/demo_1/c_cyber...`);
+    const ineligibleRes = await fetch(`${baseUrl}/generate/demo_1/c_cyber`);
+    console.log("   - Ineligible Response Status:", ineligibleRes.status);
+    const ineligibleJson = await ineligibleRes.json();
+    console.log("   - Ineligible Message:", ineligibleJson.message);
+
+    if (ineligibleRes.status !== 403 || ineligibleJson.success !== false) {
+      throw new Error("Ineligible certificate request should return 403 Forbidden!");
+    }
+
     console.log("\n✅ ALL PDF CERTIFICATE BACKEND SERVICE ACCEPTANCE CRITERIA VERIFIED SUCCESSFULLY!");
   } catch (err) {
     console.error("❌ PDF Certificate test error:", err.message);
