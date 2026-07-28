@@ -205,6 +205,21 @@ function App() {
       if (data.courses) setCourses(data.courses);
       if (data.student) setCurrentStudent(prev => ({ ...prev, ...data.student }));
     } catch (err) {
+      // Attempt fetching directly from /api/users/:id/enrollments endpoint
+      try {
+        const studentId = currentStudent?.id || "demo_1";
+        const enrollRes = await fetch(`/api/users/${studentId}/enrollments`);
+        if (enrollRes.ok) {
+          const enrollData = await enrollRes.json();
+          if (Array.isArray(enrollData) && enrollData.length > 0) {
+            setCourses(enrollData);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (e) {
+        // Local state fallback
+      }
       console.warn("API Connection note:", err.message);
       // Fallback to reactive local store so application remains 100% operational
       setApiError("Backend connection offline. Using local cached progress data.");

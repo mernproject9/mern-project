@@ -9,6 +9,7 @@ const authRoutes = require("./routes/auth");
 const dashboardRoutes = require("./routes/dashboard");
 const studentsRoutes = require("./routes/students");
 const coursesRoutes = require("./routes/courses");
+const usersRoutes = require("./routes/users");
 
 const app = express();
 
@@ -32,6 +33,9 @@ app.use("/api/auth", authRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/students", studentsRoutes);
 app.use("/api/courses", coursesRoutes);
+app.use("/api/users", usersRoutes);
+app.use("/users", usersRoutes);
+app.use("/students", usersRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {

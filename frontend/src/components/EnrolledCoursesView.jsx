@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 export default function EnrolledCoursesView({
@@ -10,10 +10,63 @@ export default function EnrolledCoursesView({
 }) {
   const navigate = useNavigate();
 
+  // Enrolled courses state loaded from API
+  const [enrolledList, setEnrolledList] = useState(courses);
+  const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState(null);
+
   // Filter & Search states
   const [statusTab, setStatusTab] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Sync state if prop updates
+  useEffect(() => {
+    if (courses && courses.length > 0) {
+      setEnrolledList(courses);
+    }
+  }, [courses]);
+
+  // Fetch user's enrolled courses from backend GET /users/:id/enrollments endpoint
+  useEffect(() => {
+    let isMounted = true;
+    const fetchUserEnrollments = async () => {
+      setLoading(true);
+      setFetchError(null);
+      try {
+        const studentId = currentStudent?.id || "demo_1";
+        // Connect frontend to backend GET /users/:id/enrollments API
+        const API_URL = window.location.port === "5173"
+          ? `/api/users/${studentId}/enrollments`
+          : `http://localhost:5000/users/${studentId}/enrollments`;
+
+        const res = await fetch(API_URL);
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}: Failed to fetch enrollments`);
+        }
+        const data = await res.json();
+        if (isMounted && Array.isArray(data)) {
+          setEnrolledList(data);
+        }
+      } catch (err) {
+        if (isMounted) {
+          console.warn("Enrollments API connection note:", err.message);
+          setFetchError("Backend offline, using cached enrollments.");
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchUserEnrollments();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentStudent?.id]);
+
+  // Active courses list to display
+  const activeCourses = enrolledList.length > 0 ? enrolledList : courses;
 
   // Save scroll position prior to opening detail view
   const handleCourseClick = () => {
@@ -22,12 +75,12 @@ export default function EnrolledCoursesView({
 
   // Metrics summary calculation
   const stats = useMemo(() => {
-    const total = courses.length;
+    const total = activeCourses.length;
     let inProgress = 0;
     let completed = 0;
     let notStarted = 0;
 
-    courses.forEach((c) => {
+    activeCourses.forEach((c) => {
       if (c.progressPercentage >= 100 || c.status === "completed") {
         completed++;
       } else if (c.progressPercentage === 0 || c.status === "not-started") {
@@ -38,17 +91,17 @@ export default function EnrolledCoursesView({
     });
 
     return { total, inProgress, completed, notStarted };
-  }, [courses]);
+  }, [activeCourses]);
 
   // Categories list
   const categoriesList = useMemo(() => {
-    const cats = new Set(courses.map((c) => c.category));
+    const cats = new Set(activeCourses.map((c) => c.category));
     return ["all", ...Array.from(cats)];
-  }, [courses]);
+  }, [activeCourses]);
 
   // Filtered courses
   const filteredCourses = useMemo(() => {
-    return courses.filter((c) => {
+    return activeCourses.filter((c) => {
       // Status filter
       if (statusTab === "in-progress" && (c.progressPercentage === 0 || c.progressPercentage >= 100)) return false;
       if (statusTab === "completed" && c.progressPercentage < 100) return false;
@@ -68,7 +121,7 @@ export default function EnrolledCoursesView({
 
       return true;
     });
-  }, [courses, statusTab, categoryFilter, searchQuery]);
+  }, [activeCourses, statusTab, categoryFilter, searchQuery]);
 
   return (
     <div className="dashboard-container" style={{ paddingBottom: "4rem" }}>
