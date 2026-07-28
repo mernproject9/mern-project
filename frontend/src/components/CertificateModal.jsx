@@ -42,11 +42,20 @@ export default function CertificateModal({ course, student, onClose }) {
           </div>
 
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "1.25rem" }}>
+            <a
+              href={`/api/certificates/download/${student?.id || "demo_1"}/${course.id || course._id || course.code}?studentName=${encodeURIComponent(student?.name || "Alex Morgan")}&courseTitle=${encodeURIComponent(course.title)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-primary"
+              style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "0.5rem" }}
+            >
+              📥 Download Backend Generated PDF
+            </a>
             <button className="btn-secondary" onClick={() => window.print()}>
-              🖨️ Print / Save PDF
+              🖨️ Print View
             </button>
-            <button className="btn-primary" onClick={onClose}>
-              Done
+            <button className="btn-secondary" onClick={onClose}>
+              Close
             </button>
           </div>
         </div>
