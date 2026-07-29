@@ -14,6 +14,7 @@ import LoginForm from "./components/LoginForm";
 import CourseDetailView from "./components/CourseDetailView";
 import EnrolledCoursesView from "./components/EnrolledCoursesView";
 import EmptyEnrolledState from "./components/EmptyEnrolledState";
+import CertificateSection from "./components/CertificateSection";
 
 // Initial fallback mock data
 const initialMockData = {
@@ -692,10 +693,29 @@ function App() {
             <UpcomingDeadlines />
           </div>
         </div>
+
+        {/* Certificate Section in Dashboard */}
+        <CertificateSection
+          courses={courses}
+          student={currentStudent}
+          onOpenCertificate={(c) => setSelectedCertificateCourse(c)}
+        />
       </main>
           }
         />
         <Route path="/course/:id" element={<CourseDetailView />} />
+        <Route
+          path="/certificates"
+          element={
+            <div className="dashboard-container">
+              <CertificateSection
+                courses={courses}
+                student={currentStudent}
+                onOpenCertificate={(c) => setSelectedCertificateCourse(c)}
+              />
+            </div>
+          }
+        />
         <Route
           path="/enrolled"
           element={

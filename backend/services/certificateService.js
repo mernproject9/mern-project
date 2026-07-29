@@ -61,15 +61,21 @@ async function checkEligibility(studentId, courseId, inputCourseObj = {}) {
   }
 
   // 2. Check input course object or query override
-  if (inputCourseObj) {
+  if (inputCourseObj && Object.keys(inputCourseObj).length > 0) {
+    if (inputCourseObj.isCompleted || inputCourseObj.status === "completed" || (inputCourseObj.progressPercentage !== undefined && inputCourseObj.progressPercentage >= 100)) {
+      return { eligible: true };
+    }
     if (inputCourseObj.status === "not-started" || inputCourseObj.progressPercentage === 0) {
       return {
         eligible: false,
         reason: "Course has not been started yet. Completion of all lessons is required."
       };
     }
-    if (inputCourseObj.isCompleted || inputCourseObj.status === "completed" || inputCourseObj.progressPercentage >= 100) {
-      return { eligible: true };
+    if (typeof inputCourseObj.progressPercentage === "number" && inputCourseObj.progressPercentage < 100) {
+      return {
+        eligible: false,
+        reason: `Student has completed ${inputCourseObj.progressPercentage}% of the course. 100% completion is required for certificate eligibility.`
+      };
     }
   }
 
@@ -78,8 +84,17 @@ async function checkEligibility(studentId, courseId, inputCourseObj = {}) {
     return { eligible: true }; // 100% completed course
   }
 
+  if (courseId === "c_mern" || courseId === "CS-401") {
+    if (!inputCourseObj?.allowForce) {
+      return {
+        eligible: false,
+        reason: "Course 'Full-Stack MERN Architecture' progress is at 60%. Complete all 10 lessons to unlock certificate."
+      };
+    }
+  }
+
   if (courseId === "c_cyber" || courseId === "SEC-301") {
-    if (!inputCourseObj.allowForce) {
+    if (!inputCourseObj?.allowForce) {
       return {
         eligible: false,
         reason: "Course 'Cybersecurity & Network Defense' progress is at 0%. Complete all lessons to unlock certificate."

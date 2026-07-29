@@ -61,6 +61,23 @@ export default function Navbar({
           >
             📚 My Courses
           </Link>
+
+          <Link
+            to="/certificates"
+            style={{
+              padding: "0.4rem 0.85rem",
+              borderRadius: "var(--radius-sm)",
+              fontSize: "0.85rem",
+              fontWeight: 600,
+              textDecoration: "none",
+              background: location.pathname === "/certificates" ? "var(--bg-card-hover)" : "transparent",
+              color: location.pathname === "/certificates" ? "var(--accent-primary)" : "var(--text-secondary)",
+              border: location.pathname === "/certificates" ? "1px solid var(--border-glow)" : "1px solid transparent",
+              transition: "all 0.2s ease"
+            }}
+          >
+            🎓 Certificates
+          </Link>
         </div>
       </div>
 
