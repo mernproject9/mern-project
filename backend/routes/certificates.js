@@ -54,6 +54,8 @@ router.get("/download/:studentId/:courseId", async (req, res) => {
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="EduPulse_Certificate_${courseId}.pdf"`);
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Expose-Headers", "Content-Disposition, Content-Type, Content-Length");
 
     const doc = result.createPDFDoc();
     doc.pipe(res);

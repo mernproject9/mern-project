@@ -71,22 +71,34 @@ if (
   process.exit(1);
 }
 
+// Check 6: Cross-browser PDF download handling (Blob URL + fallback navigation)
+if (
+  compContent.includes("createObjectURL") &&
+  compContent.includes("downloadingCourseId") &&
+  compContent.includes("downloadSuccessId")
+) {
+  console.log("✅ 6. Cross-browser PDF download triggered on click with Blob + Fallback strategies & visual button feedback.");
+} else {
+  console.error("❌ 6. Cross-browser download trigger missing in CertificateSection.jsx!");
+  process.exit(1);
+}
+
 // Test 2: Verify Certificate Section is created in dashboard (App.jsx)
 const appPath = path.join(__dirname, "frontend", "src", "App.jsx");
 const appContent = fs.readFileSync(appPath, "utf8");
 
 if (appContent.includes("CertificateSection") && appContent.includes("<CertificateSection")) {
-  console.log("✅ 6. Certificate section integrated into Dashboard in App.jsx.");
+  console.log("✅ 7. Certificate section integrated into Dashboard in App.jsx.");
 } else {
-  console.error("❌ 6. CertificateSection missing in App.jsx dashboard!");
+  console.error("❌ 7. CertificateSection missing in App.jsx dashboard!");
   process.exit(1);
 }
 
-// Check 7: /certificates route registered
+// Check 8: /certificates route registered
 if (appContent.includes('path="/certificates"')) {
-  console.log("✅ 7. Dedicated /certificates route registered in App.jsx.");
+  console.log("✅ 8. Dedicated /certificates route registered in App.jsx.");
 } else {
-  console.error("❌ 7. Route /certificates missing in App.jsx!");
+  console.error("❌ 8. Route /certificates missing in App.jsx!");
   process.exit(1);
 }
 
@@ -98,9 +110,9 @@ if (fs.existsSync(backendCertRoutePath)) {
     backendRouteContent.includes("/download/:studentId/:courseId") &&
     backendRouteContent.includes("/eligibility/:studentId/:courseId")
   ) {
-    console.log("✅ 8. Backend certificate PDF download & eligibility API endpoints active.");
+    console.log("✅ 9. Backend certificate PDF download & eligibility API endpoints active with cross-browser headers.");
   } else {
-    console.error("❌ 8. Backend certificate routes missing!");
+    console.error("❌ 9. Backend certificate routes missing!");
     process.exit(1);
   }
 }

@@ -17,10 +17,12 @@ export default function CertificateSection({
 }) {
   const [activeFilter, setActiveFilter] = useState("all"); // "all", "eligible", "in-progress"
 
-  // Async API State Management (Loading & Error states)
+  // Async API State Management (Loading, Download & Error states)
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState(null);
   const [certDataMap, setCertDataMap] = useState({});
+  const [downloadingCourseId, setDownloadingCourseId] = useState(null);
+  const [downloadSuccessId, setDownloadSuccessId] = useState(null);
 
   const studentId = student?.id || "demo_1";
   const studentName = student?.name || "Alex Morgan";
@@ -103,19 +105,55 @@ export default function CertificateSection({
     fetchCertificatesFromAPI();
   }, [fetchCertificatesFromAPI]);
 
-  // Trigger PDF certificate download
-  const handleDownloadCertificate = (e, course) => {
+  // Cross-Browser PDF Certificate Download Handler
+  const handleDownloadCertificate = async (e, course) => {
     e.stopPropagation();
     const courseId = course.id || course._id || course.code;
+    const filename = `EduPulse_Certificate_${(course.code || courseId).replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
     const downloadUrl = certDataMap[courseId]?.downloadUrl || `/api/certificates/download/${studentId}/${courseId}?studentName=${encodeURIComponent(studentName)}&courseTitle=${encodeURIComponent(course.title)}`;
 
-    // Create invisible anchor element to trigger browser PDF file download
-    const link = document.createElement("a");
-    link.href = downloadUrl;
-    link.download = `EduPulse_Certificate_${(course.code || courseId).replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    setDownloadingCourseId(courseId);
+
+    try {
+      // 1. Primary Blob Download Strategy: Works across Chrome, Firefox, Safari, Edge, Mobile WebViews
+      const response = await fetch(downloadUrl);
+      if (!response.ok) {
+        throw new Error(`Download HTTP error ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
+
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.setAttribute("download", filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Revoke Object URL after short delay to free memory
+      setTimeout(() => {
+        window.URL.revokeObjectURL(blobUrl);
+      }, 1000);
+
+      // Trigger visual success state
+      setDownloadSuccessId(courseId);
+      setTimeout(() => {
+        setDownloadSuccessId(null);
+      }, 2500);
+    } catch (err) {
+      console.warn("Blob fetch download note, falling back to direct navigation download:", err.message);
+      // 2. Direct Window/Anchor Fallback Strategy for legacy/restricted environments
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.target = "_blank";
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } finally {
+      setDownloadingCourseId(null);
+    }
   };
 
   // Helper check if course is eligible (prefer backend response, fallback to local rule)
@@ -396,6 +434,7 @@ export default function CertificateSection({
                       <button
                         className="btn-primary certificate-download-btn"
                         onClick={(e) => handleDownloadCertificate(e, course)}
+                        disabled={downloadingCourseId === courseId}
                         style={{
                           flex: 1,
                           display: "inline-flex",
@@ -405,10 +444,16 @@ export default function CertificateSection({
                           padding: "0.55rem 0.85rem",
                           fontSize: "0.82rem",
                           fontWeight: 700,
-                          cursor: "pointer"
+                          cursor: downloadingCourseId === courseId ? "wait" : "pointer",
+                          opacity: downloadingCourseId === courseId ? 0.8 : 1,
+                          background: downloadSuccessId === courseId ? "linear-gradient(90deg, #10b981 0%, #059669 100%)" : undefined
                         }}
                       >
-                        📥 Download PDF Certificate
+                        {downloadingCourseId === courseId
+                          ? "⏳ Downloading PDF..."
+                          : downloadSuccessId === courseId
+                          ? "✓ PDF Downloaded!"
+                          : "📥 Download PDF Certificate"}
                       </button>
 
                       {onOpenCertificate && (
