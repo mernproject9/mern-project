@@ -1,9 +1,14 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 
 /**
  * CertificateSection Component
- * Displays course completion certificate cards for students.
- * Download button is rendered conditionally ONLY for eligible users (100% completion / completed status).
+ * 
+ * Acceptance Criteria & Features:
+ * - Integrates with backend API to fetch eligibility and certificate data
+ * - Handles loading and error states gracefully with interactive UI feedback
+ * - Displays certificate details (course title, completion date, verified certificate ID, instructor)
+ * - Render Download PDF button conditionally ONLY for eligible users (100% completion)
+ * - Clicking download button downloads the exact PDF certificate from backend API endpoint
  */
 export default function CertificateSection({
   courses = [],
@@ -12,13 +17,114 @@ export default function CertificateSection({
 }) {
   const [activeFilter, setActiveFilter] = useState("all"); // "all", "eligible", "in-progress"
 
+  // Async API State Management (Loading & Error states)
+  const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState(null);
+  const [certDataMap, setCertDataMap] = useState({});
+
   const studentId = student?.id || "demo_1";
   const studentName = student?.name || "Alex Morgan";
 
-  // Check whether student is eligible for certificate in a given course
-  const checkIsEligible = (course) => {
+  // Helper to compute local fallback eligibility
+  const isLocallyEligible = (course) => {
     if (!course) return false;
     return course.progressPercentage >= 100 || course.status === "completed" || course.isEligible === true;
+  };
+
+  // Fetch eligibility and certificate data from backend API
+  const fetchCertificatesFromAPI = useCallback(async () => {
+    if (!courses || courses.length === 0) return;
+
+    setLoading(true);
+    setApiError(null);
+
+    const newCertMap = {};
+    let encounteredError = false;
+
+    try {
+      await Promise.all(
+        courses.map(async (course) => {
+          const courseId = course.id || course._id || course.code;
+          const pct = course.progressPercentage !== undefined ? course.progressPercentage : (isLocallyEligible(course) ? 100 : 0);
+          
+          try {
+            // Call backend API GET /api/certificates/eligibility/:studentId/:courseId
+            const apiUrl = `/api/certificates/eligibility/${studentId}/${courseId}?studentName=${encodeURIComponent(studentName)}&courseTitle=${encodeURIComponent(course.title)}&progressPercentage=${pct}&status=${encodeURIComponent(course.status || '')}`;
+            
+            const res = await fetch(apiUrl);
+            if (res.ok) {
+              const data = await res.json();
+              newCertMap[courseId] = {
+                eligible: data.eligible === true,
+                certificate: data.certificate,
+                downloadUrl: data.downloadUrl,
+                message: data.message
+              };
+            } else {
+              // Non-200 responses (e.g. 403 when ineligible)
+              const errData = await res.json().catch(() => ({}));
+              newCertMap[courseId] = {
+                eligible: false,
+                reason: errData.message || `Course progress is at ${pct}%. 100% completion required.`
+              };
+            }
+          } catch (e) {
+            // Local fallback check if backend API request fails
+            encounteredError = true;
+            const eligible = isLocallyEligible(course);
+            newCertMap[courseId] = {
+              eligible,
+              certificate: {
+                certificateId: course.certificateId || `EDUPULSE-CERT-2026-${(course.code || "CS").replace(/[^A-Z0-9]/g, "")}-8942`,
+                completionDateFormatted: course.completedAt ? new Date(course.completedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Jul 29, 2026",
+                studentName,
+                courseTitle: course.title
+              },
+              downloadUrl: `/api/certificates/download/${studentId}/${courseId}`
+            };
+          }
+        })
+      );
+
+      setCertDataMap(newCertMap);
+
+      if (encounteredError) {
+        setApiError("Backend connection offline. Displaying locally verified certificate records.");
+      }
+    } catch (err) {
+      setApiError("Failed to fetch certificate data from backend API. Using cached eligibility.");
+    } finally {
+      setLoading(false);
+    }
+  }, [courses, studentId, studentName]);
+
+  // Fetch certificate data when courses or student props change
+  useEffect(() => {
+    fetchCertificatesFromAPI();
+  }, [fetchCertificatesFromAPI]);
+
+  // Trigger PDF certificate download
+  const handleDownloadCertificate = (e, course) => {
+    e.stopPropagation();
+    const courseId = course.id || course._id || course.code;
+    const downloadUrl = certDataMap[courseId]?.downloadUrl || `/api/certificates/download/${studentId}/${courseId}?studentName=${encodeURIComponent(studentName)}&courseTitle=${encodeURIComponent(course.title)}`;
+
+    // Create invisible anchor element to trigger browser PDF file download
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = `EduPulse_Certificate_${(course.code || courseId).replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Helper check if course is eligible (prefer backend response, fallback to local rule)
+  const checkIsEligible = (course) => {
+    const courseId = course.id || course._id || course.code;
+    if (certDataMap[courseId] !== undefined) {
+      return certDataMap[courseId].eligible;
+    }
+    return isLocallyEligible(course);
   };
 
   const eligibleCourses = courses.filter(checkIsEligible);
@@ -30,30 +136,16 @@ export default function CertificateSection({
     return true;
   });
 
-  // Trigger PDF certificate download
-  const handleDownloadCertificate = (e, course) => {
-    e.stopPropagation();
-    const courseId = course.id || course._id || course.code;
-    const downloadUrl = `/api/certificates/download/${studentId}/${courseId}?studentName=${encodeURIComponent(studentName)}&courseTitle=${encodeURIComponent(course.title)}&progressPercentage=${course.progressPercentage || 0}`;
-
-    // Create invisible anchor to initiate native browser file download
-    const link = document.createElement("a");
-    link.href = downloadUrl;
-    link.download = `EduPulse_Certificate_${(course.code || courseId).replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   return (
     <section className="section-card certificate-section" id="certificates-section" style={{ marginTop: "2rem" }}>
+      {/* Header & Controls */}
       <div className="section-header" style={{ flexWrap: "wrap", gap: "1rem" }}>
         <div>
           <h2 className="section-title" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
             <span style={{ fontSize: "1.3rem" }}>🎓</span> Course Completion Certificates
           </h2>
           <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "0.25rem" }}>
-            View certificate details and download official verified PDF completion credentials for finished courses.
+            View certificate details and download official verified PDF credentials for completed courses.
           </p>
         </div>
 
@@ -79,12 +171,61 @@ export default function CertificateSection({
         </div>
       </div>
 
-      {filteredCourses.length === 0 ? (
+      {/* Backend API Error Alert Banner */}
+      {apiError && (
+        <div
+          className="api-error-banner"
+          style={{
+            background: "rgba(245, 158, 11, 0.12)",
+            border: "1px solid rgba(245, 158, 11, 0.3)",
+            color: "#fbbf24",
+            padding: "0.75rem 1.25rem",
+            borderRadius: "var(--radius-md)",
+            marginTop: "1rem",
+            fontSize: "0.85rem",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "1rem"
+          }}
+        >
+          <span>⚡ {apiError}</span>
+          <button
+            onClick={fetchCertificatesFromAPI}
+            style={{
+              background: "var(--accent-warning)",
+              border: "none",
+              color: "#000",
+              padding: "0.35rem 0.8rem",
+              borderRadius: "var(--radius-sm)",
+              fontWeight: 700,
+              fontSize: "0.78rem",
+              cursor: "pointer"
+            }}
+          >
+            Retry API
+          </button>
+        </div>
+      )}
+
+      {/* Loading State Skeleton */}
+      {loading ? (
+        <div style={{ textAlign: "center", padding: "3.5rem 1rem", color: "var(--text-secondary)" }}>
+          <div style={{ fontSize: "2rem", marginBottom: "0.75rem" }} className="animate-spin">
+            ⏳
+          </div>
+          <div style={{ fontWeight: 600, fontSize: "0.95rem" }}>
+            Connecting to API & verifying course completion certificates...
+          </div>
+        </div>
+      ) : filteredCourses.length === 0 ? (
+        /* Empty State */
         <div style={{ textAlign: "center", padding: "3rem 1rem", color: "var(--text-muted)" }}>
           <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>📜</div>
           <p style={{ fontWeight: 600 }}>No certificates found matching filter criteria.</p>
         </div>
       ) : (
+        /* Certificates Grid View */
         <div
           className="certificates-grid"
           style={{
@@ -95,18 +236,13 @@ export default function CertificateSection({
           }}
         >
           {filteredCourses.map((course) => {
-            const isEligible = checkIsEligible(course);
             const courseId = course.id || course._id || course.code;
-            const codeFormatted = (course.code || "CS-401").replace(/[^A-Z0-9]/g, "");
-            const certId = course.certificateId || `EDUPULSE-CERT-2026-${codeFormatted}-8942`;
+            const isEligible = checkIsEligible(course);
+            const apiInfo = certDataMap[courseId]?.certificate;
             
-            // Format issue or completion date
-            const dateObj = course.completedAt ? new Date(course.completedAt) : new Date();
-            const completionDateFormatted = dateObj.toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              year: "numeric"
-            });
+            const codeFormatted = (course.code || "CS-401").replace(/[^A-Z0-9]/g, "");
+            const certId = apiInfo?.certificateId || course.certificateId || `EDUPULSE-CERT-2026-${codeFormatted}-8942`;
+            const issueDate = apiInfo?.completionDateFormatted || (course.completedAt ? new Date(course.completedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Jul 29, 2026");
 
             return (
               <div
@@ -124,10 +260,10 @@ export default function CertificateSection({
                   justifyContent: "space-between",
                   position: "relative",
                   boxShadow: isEligible ? "0 4px 20px rgba(245, 158, 11, 0.08)" : "none",
-                  transition: "transform 0.2s ease, box-shadow 0.2s ease"
+                  transition: "all 0.2s ease"
                 }}
               >
-                {/* Decorative Top Accent Bar */}
+                {/* Top Accent Line */}
                 <div
                   style={{
                     position: "absolute",
@@ -143,7 +279,7 @@ export default function CertificateSection({
                   }}
                 />
 
-                {/* Top Header & Eligibility Status Badge */}
+                {/* Header & Eligibility Status Badge */}
                 <div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
                     <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--accent-primary)", letterSpacing: "0.5px" }}>
@@ -202,7 +338,7 @@ export default function CertificateSection({
                     {course.title}
                   </h3>
 
-                  {/* UI Certificate Details (Course, Date, ID) */}
+                  {/* UI Certificate Details (course, date, ID) */}
                   <div
                     className="certificate-details"
                     style={{
@@ -231,7 +367,7 @@ export default function CertificateSection({
                       <>
                         <div style={{ display: "flex", justifyContent: "space-between" }}>
                           <span style={{ color: "var(--text-secondary)" }}>Completion Date:</span>
-                          <span className="certificate-date" style={{ color: "#34d399", fontWeight: 600 }}>{completionDateFormatted}</span>
+                          <span className="certificate-date" style={{ color: "#34d399", fontWeight: 600 }}>{issueDate}</span>
                         </div>
 
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -279,7 +415,7 @@ export default function CertificateSection({
                         <button
                           className="btn-secondary"
                           onClick={() => onOpenCertificate(course)}
-                          title="View Digital Certificate Preview Modal"
+                          title="View Certificate Modal"
                           style={{
                             padding: "0.55rem 0.75rem",
                             fontSize: "0.82rem"
@@ -290,7 +426,7 @@ export default function CertificateSection({
                       )}
                     </>
                   ) : (
-                    /* Show locked notice for non-eligible users; Download button is hidden */
+                    /* Locked notice rendered for non-eligible users; Download button is hidden */
                     <div
                       className="certificate-locked-notice"
                       style={{

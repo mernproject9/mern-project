@@ -64,6 +64,41 @@ router.get("/download/:studentId/:courseId", async (req, res) => {
   }
 });
 
+// GET /api/certificates/eligibility/:studentId/:courseId - Check Eligibility & Fetch Certificate Info JSON
+router.get("/eligibility/:studentId/:courseId", async (req, res) => {
+  try {
+    const { studentId, courseId } = req.params;
+    const { studentName, courseTitle, progressPercentage, status } = req.query;
+
+    const result = await certificateService.getOrGenerateCertificate(studentId, courseId, {
+      studentName,
+      courseTitle,
+      courseObj: {
+        progressPercentage: progressPercentage !== undefined ? Number(progressPercentage) : undefined,
+        status
+      }
+    });
+
+    if (!result.success) {
+      return res.status(result.status || 403).json({
+        success: false,
+        eligible: false,
+        message: result.message
+      });
+    }
+
+    return res.json({
+      success: true,
+      eligible: true,
+      certificate: result.certData,
+      downloadUrl: `/api/certificates/download/${studentId}/${courseId}?studentName=${encodeURIComponent(studentName || "")}&courseTitle=${encodeURIComponent(courseTitle || "")}`,
+      viewUrl: `/api/certificates/generate/${studentId}/${courseId}`
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, eligible: false, message: err.message });
+  }
+});
+
 // GET /api/certificates/:courseId - Shortcut endpoint for course certificate
 router.get("/:courseId", async (req, res) => {
   try {
