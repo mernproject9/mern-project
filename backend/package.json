@@ -3,8 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "start": "node ./bin/www",
+    "dev": "node ./bin/www",
+    "server": "node server.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
